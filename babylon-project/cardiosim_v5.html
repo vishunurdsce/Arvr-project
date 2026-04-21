@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CardioSim v4 — Cardiac Simulation Platform</title>
+<script src="https://unpkg.com/babylonjs@6.44.0/babylon.js"></script>
+<script src="https://unpkg.com/babylonjs-loaders@6.44.0/babylonjs.loaders.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06080e;
+  --panel:#0a0d16;
+  --panel2:#0e1220;
+  --border:#161d2e;
+  --border2:#1e2a42;
+  --red:#e84040;
+  --red2:#ff5a5a;
+  --red3:#ff2222;
+  --green:#2ecc71;
+  --green2:#52e892;
+  --blue:#3b9eff;
+  --blue2:#6dbfff;
+  --yellow:#f0a500;
+  --yellow2:#ffc030;
+  --purple:#a855f7;
+  --cyan:#06b6d4;
+  --orange:#f97316;
+  --text:#e2eaf8;
+  --muted:#3a4a68;
+  --muted2:#6b7fa8;
+  --card:#08101c;
+  --glow-red:rgba(232,64,64,.18);
+  --glow-green:rgba(46,204,113,.15);
+  --glow-blue:rgba(59,158,255,.15);
+}
+
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
+body{font-family:'Syne',sans-serif}
+
+/* ─── SCANLINE texture overlay ─── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);
+}
+
+/* ─── GRID LINES background ─── */
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(59,158,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(59,158,255,.03) 1px,transparent 1px);
+  background-size:48px 48px;
+}
+
+.shell{display:grid;grid-template-columns:300px 1fr 280px;height:100vh;position:relative;z-index:1}
+
+/* ═══════════════════════════════════
+   LEFT SIDEBAR
+═══════════════════════════════════ */
+.sidebar{
+  background:linear-gradient(180deg,var(--panel) 0%,rgba(6,8,14,.98) 100%);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:inset -1px 0 0 rgba(59,158,255,.06);
+}
+
+/* Header */
+.sb-header{
+  padding:16px 16px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+  background:linear-gradient(135deg,rgba(232,64,64,.06),transparent);
+}
+.heart-logo{position:relative;width:28px;height:28px;flex-shrink:0}
+.heart-logo svg{width:28px;height:28px;overflow:visible}
+.heart-path{fill:none;stroke:var(--red2);stroke-width:1.8;stroke-linejoin:round;
+  filter:drop-shadow(0 0 6px var(--red));animation:logopulse 1.1s ease-in-out infinite}
+@keyframes logopulse{
+  0%,100%{stroke:var(--red2);filter:drop-shadow(0 0 5px var(--red))}
+  40%{stroke:#ff8080;filter:drop-shadow(0 0 12px var(--red2))}
+}
+.sb-brand{flex:1}
+.sb-title{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;
+  color:var(--text);letter-spacing:.08em;line-height:1}
+.sb-sub{font-size:10px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:2px;letter-spacing:.06em}
+.ver-badge{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);
+  background:rgba(59,158,255,.1);border:1px solid rgba(59,158,255,.25);
+  padding:3px 8px;border-radius:4px;letter-spacing:.04em}
+
+/* Disease tabs */
+.dis-bar{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.dis-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.14em;margin-bottom:7px}
+.dis-tabs{display:flex;flex-wrap:wrap;gap:4px}
+.dtab{
+  padding:4px 9px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--muted2);font-size:10px;cursor:pointer;
+  font-family:'JetBrains Mono',monospace;transition:all .15s;letter-spacing:.02em;
+}
+.dtab:hover{border-color:var(--border2);color:var(--text);background:var(--panel2)}
+.dtab.active{background:rgba(59,158,255,.12);border-color:rgba(59,158,255,.4);color:var(--blue2)}
+
+/* Vitals */
+.vitals{padding:10px 14px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0}
+.vcard{
+  background:var(--card);border-radius:6px;padding:8px 10px;
+  border:1px solid var(--border);position:relative;overflow:hidden;transition:border-color .3s;
+}
+.vcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;border-radius:0 0 6px 6px;transition:background .3s}
+.vcard.vc-green::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.vcard.vc-red::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.vcard.vc-yellow::after{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.vcard.vc-blue::after{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
+.vcard.vc-cyan::after{background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+.vcard.vc-purple::after{background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.vcard.vc-green{border-color:rgba(46,204,113,.2)}
+.vcard.vc-red{border-color:rgba(232,64,64,.3);background:rgba(20,8,8,.8)}
+.vcard.vc-blue{border-color:rgba(59,158,255,.2)}
+.v-lbl{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--muted2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+.v-val{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;line-height:1;transition:color .35s}
+.v-unit{font-size:8.5px;color:var(--muted2);margin-top:2px;font-family:'JetBrains Mono',monospace}
+.vg{color:var(--green)}.vy{color:var(--yellow)}.vr{color:var(--red)}.vb{color:var(--blue)}.vc{color:var(--cyan)}.vp{color:var(--purple)}
+
+/* ECG */
+.ecg-wrap{padding:9px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ecg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.ecg-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.12em}
+.ecg-badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:3px;
+  border:1px solid var(--border);background:var(--card);color:var(--muted2);transition:all .3s}
+#ecgCanvas{width:100%;height:52px;display:block;border-radius:4px}
+
+/* Stages */
+.stages-wrap{padding:10px 14px;overflow-y:auto;flex:1;min-height:0;border-bottom:1px solid var(--border)}
+.sec-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.14em;margin-bottom:7px}
+.stg-btn{
+  width:100%;text-align:left;padding:7px 10px;margin-bottom:3px;border-radius:5px;
+  border:1px solid transparent;background:transparent;color:var(--muted2);font-size:11px;
+  cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s;
+  font-family:'Syne',sans-serif;
+}
+.stg-btn:hover{background:var(--panel2);color:var(--text);border-color:var(--border)}
+.stg-btn.active{background:rgba(59,158,255,.08);border-color:rgba(59,158,255,.35);color:var(--blue2)}
+.stg-btn.done{color:var(--green);border-color:rgba(46,204,113,.15)}
+.stg-btn.done:hover{background:rgba(46,204,113,.05)}
+.stg-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+.stg-btn.active .stg-dot{background:var(--blue);box-shadow:0 0 6px var(--blue)}
+.stg-btn.done .stg-dot{background:var(--green);box-shadow:0 0 4px var(--green)}
+.stg-badge{font-size:9px;padding:1px 6px;border-radius:8px;background:var(--card);
+  color:var(--muted2);margin-left:auto;font-family:'JetBrains Mono',monospace;
+  border:1px solid var(--border);white-space:nowrap}
+.stg-btn.active .stg-badge{background:rgba(59,158,255,.15);color:var(--blue2);border-color:rgba(59,158,255,.3)}
+.stg-btn.done .stg-badge{background:rgba(46,204,113,.1);color:var(--green);border-color:rgba(46,204,113,.25)}
+
+/* Risk */
+.risk-wrap{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.risk-track{height:4px;background:var(--card);border-radius:2px;overflow:hidden;margin:6px 0 5px}
+.risk-fill{height:100%;border-radius:2px;transition:width .7s cubic-bezier(.4,0,.2,1),background .5s}
+.risk-row{display:flex;justify-content:space-between;align-items:center}
+.risk-num{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;transition:color .4s}
+.risk-tag{font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 9px;border-radius:10px;border:1px solid;font-weight:500}
+
+/* Pacemaker */
+.pacer{display:none;margin:0 14px 6px;padding:8px 11px;border-radius:5px;
+  background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);
+  align-items:center;gap:9px;flex-shrink:0}
+.pacer.show{display:flex}
+.pacer-dot{width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;
+  animation:pacepulse .9s ease-in-out infinite;box-shadow:0 0 8px var(--purple)}
+@keyframes pacepulse{0%,100%{opacity:1}50%{opacity:.2}}
+.pacer-txt{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)}
+
+/* Alert */
+.alert-bar{display:none;margin:0 14px 5px;padding:7px 10px;border-radius:5px;
+  align-items:center;gap:7px;font-size:11px;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.alert-bar.show{display:flex}
+.ac{background:rgba(232,64,64,.1);border:1px solid rgba(232,64,64,.35);color:var(--red2)}
+.aw{background:rgba(240,165,0,.08);border:1px solid rgba(240,165,0,.3);color:var(--yellow2)}
+.ai{background:rgba(59,158,255,.08);border:1px solid rgba(59,158,255,.25);color:var(--blue2)}
+.alert-icon{font-size:13px;flex-shrink:0}
+
+/* Footer */
+.sb-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:7px;flex-shrink:0}
+.btn-p{
+  flex:1;padding:9px;border-radius:5px;
+  background:linear-gradient(135deg,rgba(59,158,255,.2),rgba(59,158,255,.1));
+  border:1px solid rgba(59,158,255,.35);color:var(--blue2);
+  font-size:11px;font-weight:600;cursor:pointer;font-family:'Syne',sans-serif;
+  transition:all .15s;letter-spacing:.03em;
+}
+.btn-p:hover{background:linear-gradient(135deg,rgba(59,158,255,.3),rgba(59,158,255,.18));border-color:var(--blue)}
+.btn-s{padding:9px 13px;border-radius:5px;background:transparent;border:1px solid var(--border);
+  color:var(--muted2);font-size:11px;cursor:pointer;font-family:'Syne',sans-serif;transition:all .15s}
+.btn-s:hover{background:var(--panel2);color:var(--text);border-color:var(--border2)}
+
+/* ═══════════════════════════════════
+   CENTER VIEWPORT
+═══════════════════════════════════ */
+.viewport{background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden}
+
+/* Top bar */
+.vp-bar{
+  position:absolute;top:0;left:0;right:0;z-index:20;
+  padding:11px 16px;display:flex;align-items:center;gap:10px;
+  background:linear-gradient(180deg,rgba(6,8,14,.95) 0%,transparent 100%);
+  border-bottom:1px solid rgba(22,29,46,.6);
+}
+.vp-title{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.12em;flex:1}
+.view-btns{display:flex;background:var(--card);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.vbtn{padding:5px 12px;border:none;background:transparent;color:var(--muted2);
+  font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;
+  transition:all .15s;letter-spacing:.04em}
+.vbtn+.vbtn{border-left:1px solid var(--border)}
+.vbtn:hover{color:var(--text)}
+.vbtn.active{background:rgba(59,158,255,.15);color:var(--blue2)}
+.live-pill{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;
+  font-size:9px;color:var(--green);padding:4px 9px;border-radius:10px;
+  background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.25)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:ldot 1.2s step-end infinite}
+@keyframes ldot{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Babylon canvas */
+#renderCanvas{width:100%;height:100%;display:block;touch-action:none;outline:none}
+
+/* Loading */
+.loader{
+  position:absolute;inset:0;z-index:15;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  background:var(--bg);transition:opacity .6s;
+}
+.loader.gone{opacity:0;pointer-events:none}
+.loader-ring{width:44px;height:44px;border-radius:50%;
+  border:2px solid var(--border2);border-top-color:var(--red);
+  animation:spin .75s linear infinite;box-shadow:0 0 12px var(--glow-red)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-txt{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2);letter-spacing:.08em}
+.loader-sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.06em}
+
+/* Bottom HUD */
+.hud{
+  position:absolute;bottom:0;left:0;right:0;z-index:10;
+  padding:10px 16px 12px;
+  background:linear-gradient(0deg,rgba(6,8,14,.96) 60%,transparent 100%);
+}
+.hud-chips{display:flex;gap:7px;flex-wrap:wrap}
+.hchip{
+  background:rgba(10,16,28,.9);border:1px solid var(--border);border-radius:5px;
+  padding:5px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2);
+  backdrop-filter:blur(4px);transition:border-color .3s;
+}
+.hchip span{font-weight:600}
+.hchip.ok span{color:var(--green)}
+.hchip.warn span{color:var(--yellow)}
+.hchip.crit span{color:var(--red2)}
+
+/* Anatomy labels */
+.ana-lbl{
+  position:absolute;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);
+  background:rgba(6,8,14,.85);border:1px solid var(--border);padding:3px 8px;border-radius:3px;
+  pointer-events:none;opacity:0;transition:opacity .4s;letter-spacing:.06em;
+  backdrop-filter:blur(6px);white-space:nowrap;
+}
+.ana-lbl.show{opacity:1}
+
+/* ═══════════════════════════════════
+   RIGHT PANEL
+═══════════════════════════════════ */
+.rpanel{
+  background:linear-gradient(180deg,var(--panel) 0%,rgba(6,8,14,.98) 100%);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:inset 1px 0 0 rgba(59,158,255,.04);
+}
+.rp-head{padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.rp-sup{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.14em;margin-bottom:5px}
+.rp-module{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:var(--text)}
+
+/* Controls */
+.ctrl-sect{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ctrl-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.12em;margin-bottom:7px}
+.ctrl-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
+.cbtn{
+  padding:7px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;
+  color:var(--muted2);font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;
+  transition:all .15s;text-align:center;letter-spacing:.02em;
+}
+.cbtn:hover{background:var(--panel2);color:var(--text);border-color:var(--border2)}
+.cbtn.on{background:rgba(46,204,113,.08);border-color:rgba(46,204,113,.3);color:var(--green)}
+.cbtn.on-red{background:rgba(232,64,64,.08);border-color:rgba(232,64,64,.3);color:var(--red2)}
+.cbtn.on-blue{background:rgba(59,158,255,.08);border-color:rgba(59,158,255,.3);color:var(--blue2)}
+
+/* HR slider */
+.hr-sect{padding:9px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.hr-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+.slider{
+  flex:1;-webkit-appearance:none;height:3px;border-radius:2px;
+  background:linear-gradient(90deg,var(--blue) calc(var(--pct,42%)),var(--border) calc(var(--pct,42%)));
+  outline:none;cursor:pointer;
+}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--blue);border:2px solid var(--bg);box-shadow:0 0 8px var(--blue);cursor:pointer}
+.hr-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--blue2);width:42px;text-align:right}
+
+/* Notes */
+.notes-sect{padding:12px 14px;flex:1;overflow-y:auto;min-height:0}
+.notes-body{font-size:12px;color:var(--muted2);line-height:1.8;font-family:'Syne',sans-serif}
+.notes-body b{color:var(--text);font-weight:600}
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:9px;
+  padding:1px 7px;border-radius:8px;margin:1px 2px;vertical-align:middle;border:1px solid}
+.pr{background:rgba(232,64,64,.1);color:var(--red2);border-color:rgba(232,64,64,.3)}
+.pg{background:rgba(46,204,113,.08);color:var(--green2);border-color:rgba(46,204,113,.25)}
+.pb{background:rgba(59,158,255,.08);color:var(--blue2);border-color:rgba(59,158,255,.25)}
+.py{background:rgba(240,165,0,.08);color:var(--yellow2);border-color:rgba(240,165,0,.25)}
+.pp{background:rgba(168,85,247,.08);color:#d8aaff;border-color:rgba(168,85,247,.25)}
+.pc{background:rgba(6,182,212,.08);color:var(--cyan);border-color:rgba(6,182,212,.25)}
+.po{background:rgba(249,115,22,.08);color:var(--orange);border-color:rgba(249,115,22,.25)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ══════ LEFT SIDEBAR ══════ -->
+<div class="sidebar">
+  <div class="sb-header">
+    <div class="heart-logo">
+      <svg viewBox="0 0 28 28"><path class="heart-path" d="M14 23 C14 23 3 15 3 9 C3 5.8 5.5 3 9 3 C11.2 3 13 4.5 14 6.2 C15 4.5 16.8 3 19 3 C22.5 3 25 5.8 25 9 C25 15 14 23 14 23Z"/></svg>
+    </div>
+    <div class="sb-brand">
+      <div class="sb-title">CARDIOSIM</div>
+      <div class="sb-sub">CARDIAC SIMULATION PLATFORM</div>
+    </div>
+    <div class="ver-badge">v4.0</div>
+  </div>
+
+  <div class="dis-bar">
+    <div class="dis-lbl">Disease Module</div>
+    <div class="dis-tabs" id="disTabs"></div>
+  </div>
+
+  <div class="vitals">
+    <div class="vcard vc-green" id="vc-hr">
+      <div class="v-lbl">Heart Rate</div>
+      <div class="v-val vg" id="vHR">72</div>
+      <div class="v-unit">bpm</div>
+    </div>
+    <div class="vcard vc-blue" id="vc-bp">
+      <div class="v-lbl">BP (Sys)</div>
+      <div class="v-val vb" id="vBP">120</div>
+      <div class="v-unit">mmHg</div>
+    </div>
+    <div class="vcard vc-green" id="vc-spo2">
+      <div class="v-lbl">SpO₂</div>
+      <div class="v-val vg" id="vSPO2">98</div>
+      <div class="v-unit">%</div>
+    </div>
+    <div class="vcard vc-cyan" id="vc-ef">
+      <div class="v-lbl">EF</div>
+      <div class="v-val vc" id="vEF">65</div>
+      <div class="v-unit">%</div>
+    </div>
+  </div>
+
+  <div class="ecg-wrap">
+    <div class="ecg-head">
+      <span class="ecg-lbl">ECG — Lead II</span>
+      <span class="ecg-badge" id="ecgBadge">NSR</span>
+    </div>
+    <canvas id="ecgCanvas" width="272" height="52"></canvas>
+  </div>
+
+  <div class="stages-wrap">
+    <div class="sec-lbl">Procedure Stages</div>
+    <div id="stageList"></div>
+  </div>
+
+  <div class="risk-wrap">
+    <div class="sec-lbl">Risk Score</div>
+    <div class="risk-track"><div class="risk-fill" id="riskBar" style="width:5%"></div></div>
+    <div class="risk-row">
+      <div class="risk-num vg" id="riskNum">Low</div>
+      <div class="risk-tag" id="riskTag">Stable</div>
+    </div>
+  </div>
+
+  <div class="pacer" id="pacerWidget">
+    <div class="pacer-dot"></div>
+    <div class="pacer-txt">⚡ Pacemaker — <span id="pacerRate">70</span> ppm</div>
+  </div>
+
+  <div class="alert-bar" id="alertBar">
+    <span class="alert-icon">⚠</span>
+    <span id="alertTxt"></span>
+  </div>
+
+  <div class="sb-footer">
+    <button class="btn-s" onclick="prevStep()">← Back</button>
+    <button class="btn-p" onclick="nextStep()">Advance Stage →</button>
+  </div>
+</div>
+
+<!-- ══════ VIEWPORT ══════ -->
+<div class="viewport">
+  <div class="vp-bar">
+    <div class="vp-title" id="vpTitle">3D Cardiac Simulation</div>
+    <div class="view-btns">
+      <button class="vbtn active" id="vbBeat" onclick="setView('beat')">❤ Beating</button>
+      <button class="vbtn" id="vbAnat" onclick="setView('anatomy')">🫀 Anatomy</button>
+    </div>
+    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+  </div>
+
+  <canvas id="renderCanvas"></canvas>
+
+  <!-- Anatomy labels -->
+  <div class="ana-lbl" id="aLA"  style="top:20%;left:28%">Left Atrium</div>
+  <div class="ana-lbl" id="aRA"  style="top:20%;right:26%">Right Atrium</div>
+  <div class="ana-lbl" id="aLV"  style="top:62%;left:22%">Left Ventricle</div>
+  <div class="ana-lbl" id="aRV"  style="top:62%;right:20%">Right Ventricle</div>
+  <div class="ana-lbl" id="aAO"  style="top:8%;left:42%">Aorta</div>
+  <div class="ana-lbl" id="aPA"  style="top:15%;right:28%">Pulm. Artery</div>
+
+  <div class="loader" id="loader">
+    <div class="loader-ring"></div>
+    <div class="loader-txt" id="loaderTxt">Initialising Babylon.js engine…</div>
+    <div class="loader-sub">Loading models/beating-heart.glb</div>
+  </div>
+
+  <div class="hud">
+    <div class="hud-chips">
+      <div class="hchip ok" id="hcLumen">Lumen <span id="hdLumen">3.8mm</span></div>
+      <div class="hchip" id="hcPat">Patency <span id="hdPat">100%</span></div>
+      <div class="hchip" id="hcSten">Stenosis <span id="hdSten">0%</span></div>
+      <div class="hchip ok" id="hcFlow">Flow <span id="hdFlow">5.0 L/min</span></div>
+      <div class="hchip" id="hcRhythm">Rhythm <span id="hdRhythm">Regular</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ RIGHT PANEL ══════ -->
+<div class="rpanel">
+  <div class="rp-head">
+    <div class="rp-sup">Active Module</div>
+    <div class="rp-module" id="rpModule">Coronary Artery Disease</div>
+  </div>
+
+  <div class="ctrl-sect">
+    <div class="ctrl-lbl">Simulation Controls</div>
+    <div class="ctrl-grid">
+      <button class="cbtn on" id="cBeat" onclick="toggleBeat()">❤ Beat ON</button>
+      <button class="cbtn" id="cRotate" onclick="toggleRotate()">↻ Rotate</button>
+      <button class="cbtn" id="cWire" onclick="toggleWire()">⬡ Wireframe</button>
+      <button class="cbtn" id="cXray" onclick="toggleXray()">◎ X-Ray</button>
+    </div>
+    <button class="cbtn" style="width:100%" id="cGlow" onclick="toggleGlow()">✦ Pulse Glow</button>
+  </div>
+
+  <div class="hr-sect">
+    <div class="ctrl-lbl">HR Override — <span id="hrDisplay" style="color:var(--blue2);font-family:'JetBrains Mono',monospace">72</span> bpm</div>
+    <div class="hr-row">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted)">30</span>
+      <input type="range" class="slider" id="hrSlider" min="30" max="200" value="72" style="--pct:24%" oninput="hrOverride(this.value)">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted)">200</span>
+    </div>
+  </div>
+
+  <div style="padding:12px 14px 0">
+    <div class="sec-lbl" style="margin-bottom:9px">Vessel Cross-Section</div>
+    <svg id="vesselSvg" viewBox="0 0 110 96" width="100%" style="border-radius:6px;background:#06080e;display:block;max-height:110px"></svg>
+  </div>
+
+  <div class="notes-sect">
+    <div class="sec-lbl" style="margin-bottom:9px">Clinical Notes</div>
+    <div class="notes-body" id="notesBody">Select a disease module and stage.</div>
+  </div>
+</div>
+
+</div><!-- .shell -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DISEASE DATA
+// ═══════════════════════════════════════════════════════════
+const DISEASES = {
+  cad:{name:"Coronary Artery Disease",ecg:"normal",stages:[
+    {id:1,lbl:"Baseline Physiology",badge:"Normal",hr:72,bp:120,spo2:98,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:5,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stable",
+     alert:null,pacer:false,stent:false,balloon:false,
+     info:"<b>Normal coronary artery.</b> Laminar, unobstructed blood flow. Lumen 3.8 mm, endothelial function intact. No lipid deposits detected. Cardiac output optimal. <span class='pill pg'>Healthy</span>"},
+    {id:2,lbl:"Plaque Accumulation",badge:"Stage I",hr:79,bp:132,spo2:97,ef:60,flow:3.8,pat:70,sten:30,lumen:"2.7mm",rhythm:"Regular",
+     risk:35,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Atherosclerosis",
+     alert:{c:"aw",t:"Lipid-rich plaque detected — exertional angina risk"},pacer:false,
+     info:"<b>Atherosclerotic plaque forming.</b> Cholesterol deposits in tunica intima. Lumen narrowed to 2.7 mm (30% stenosis). Patient may be asymptomatic at rest but show exertional angina on stress testing. <span class='pill py'>Stage I</span>"},
+    {id:3,lbl:"Critical Stenosis",badge:">70%",hr:97,bp:158,spo2:92,ef:41,flow:1.2,pat:22,sten:75,lumen:"0.9mm",rhythm:"Irregular",
+     risk:84,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"STEMI Risk",
+     alert:{c:"ac",t:"Critical stenosis — STEMI risk HIGH — immediate PCI required"},pacer:false,
+     info:"<b>Haemodynamically significant obstruction.</b> 75% stenosis, FFR &lt;0.8. Near-complete occlusion with turbulent retrograde steal. Risk of plaque rupture and acute anterior MI is very high. <span class='pill pr'>Emergency</span>"},
+    {id:4,lbl:"Balloon Angioplasty",badge:"PCI",hr:86,bp:140,spo2:95,ef:48,flow:3.5,pat:72,sten:28,lumen:"2.9mm",rhythm:"Regular",
+     risk:45,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Post-PTCA",
+     alert:{c:"aw",t:"PTCA active — haemodynamic monitoring — elastic recoil risk"},pacer:false,balloon:true,
+     info:"<b>PTCA balloon inflated to 12 atm for 45 s.</b> Plaque compressed and cracked. Lumen enlarged to 2.9 mm. Elastic recoil remains a concern — drug-eluting stent deployment recommended next. <span class='pill pb'>PCI Active</span>"},
+    {id:5,lbl:"Stent Deployment",badge:"DES",hr:76,bp:124,spo2:97,ef:57,flow:4.7,pat:93,sten:7,lumen:"3.6mm",rhythm:"Regular",
+     risk:15,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stented",
+     alert:null,pacer:false,stent:true,
+     info:"<b>Drug-eluting stent deployed.</b> Nitinol scaffold prevents elastic recoil. Anti-proliferative drug coating (everolimus) reduces in-stent restenosis to &lt;10% at 1 year. DAPT required for 12 months. <span class='pill pg'>DES Deployed</span>"},
+    {id:6,lbl:"Post-op Recovery",badge:"D30",hr:70,bp:118,spo2:99,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:8,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Recovered",
+     alert:null,pacer:false,stent:true,
+     info:"<b>Haemodynamics fully restored.</b> Vessel patency 100%. Stent endothelialisation progressing normally. Follow-up angiography at 6 months. MACE risk at 1 year estimated &lt;5%. <span class='pill pg'>Recovered</span>"},
+  ]},
+
+  pacemaker:{name:"Pacemaker Implantation",ecg:"paced",stages:[
+    {id:1,lbl:"Complete Heart Block",badge:"3°HB",hr:36,bp:80,spo2:89,ef:36,flow:2.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Dissociated",
+     risk:90,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Emergency",
+     alert:{c:"ac",t:"Complete AV block — ventricular escape 36 bpm — urgent pacing"},pacer:false,ecgOvr:"3°Block",
+     info:"<b>Third-degree (complete) AV block.</b> Total electrical dissociation of atria and ventricles. Ventricular escape rhythm at 36 bpm — severely inadequate for perfusion. Syncope, haemodynamic collapse imminent. <span class='pill pr'>Code Blue Risk</span>"},
+    {id:2,lbl:"Transcutaneous Pacing",badge:"TCP",hr:70,bp:96,spo2:92,ef:42,flow:3.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Paced",
+     risk:58,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"TCP Active",
+     alert:{c:"aw",t:"External pacing at 70 ppm — 80 mA — patient sedated"},pacer:true,pacerRate:70,
+     info:"<b>Transcutaneous external pacing initiated.</b> 80 mA at 70 ppm. Painful — IV sedation/analgesia required. Capture confirmed on ECG. Bridge measure before transvenous lead placement. <span class='pill py'>Bridge</span>"},
+    {id:3,lbl:"Transvenous Lead",badge:"TVP",hr:70,bp:106,spo2:95,ef:47,flow:3.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Paced",
+     risk:42,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Lead OK",
+     alert:{c:"ai",t:"Fluoroscopy active — 7Fr lead via left subclavian → RV apex"},pacer:true,pacerRate:70,
+     info:"<b>Transvenous RV lead successfully placed.</b> 7Fr lead via left subclavian vein through tricuspid valve to RV apex. Sensing 8 mV, threshold 0.6V @ 0.5ms, impedance 580Ω — all parameters acceptable. <span class='pill pb'>Lead Placed</span>"},
+    {id:4,lbl:"Pulse Generator Implant",badge:"PPM",hr:70,bp:112,spo2:97,ef:50,flow:4.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Paced",
+     risk:28,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"PPM Implanted",
+     alert:null,pacer:true,pacerRate:70,
+     info:"<b>Permanent pacemaker generator implanted.</b> DDD dual-chamber device in left pectoral pocket. VVI backup 50 ppm. DDDR rate-response enabled. Battery longevity ~10 years at 70 ppm. <span class='pill pp'>PPM</span>"},
+    {id:5,lbl:"CRT-D Biventricular",badge:"CRT-D",hr:68,bp:118,spo2:97,ef:55,flow:4.5,pat:100,sten:0,lumen:"3.8mm",rhythm:"BiV Paced",
+     risk:22,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"CRT-D",
+     alert:{c:"ai",t:"BiV pacing synchronising LV + RV — correcting LBBB dyssynchrony"},pacer:true,pacerRate:68,
+     info:"<b>Cardiac Resynchronisation Therapy-Defibrillator implanted.</b> 3rd lead in coronary sinus for LV epicardial pacing. BiV synchronisation corrects LBBB dyssynchrony. EF improves 35%→55% in ~70% of responders at 6 months. <span class='pill pp'>CRT-D Active</span>"},
+    {id:6,lbl:"Post-Implant D7",badge:"D7",hr:68,bp:115,spo2:99,ef:58,flow:4.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Paced",
+     risk:10,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stable",
+     alert:null,pacer:true,pacerRate:68,
+     info:"<b>Device functioning optimally.</b> Wound healing well. Arm restriction for 6 weeks — no overhead movement. Remote monitoring enabled. Clinic review at 6 weeks, then 6-monthly. Confirm MRI-conditional status before any scan. <span class='pill pg'>Recovered</span>"},
+  ]},
+
+  afib:{name:"Atrial Fibrillation",ecg:"afib",stages:[
+    {id:1,lbl:"Sinus Rhythm Baseline",badge:"NSR",hr:70,bp:120,spo2:98,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:5,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"NSR",
+     alert:null,pacer:false,ecgOvr:"Normal",
+     info:"<b>Normal sinus rhythm — baseline.</b> Regular P-QRS-T morphology. PR interval 160 ms. AV node conduction intact. No ectopic foci detected. CHA₂DS₂-VASc baseline established. <span class='pill pg'>NSR</span>"},
+    {id:2,lbl:"Paroxysmal AF Onset",badge:"PAF",hr:120,bp:138,spo2:94,ef:53,flow:3.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Irregularly Irreg.",
+     risk:44,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"PAF",
+     alert:{c:"aw",t:"AF onset — irregularly irregular rhythm — P-waves absent"},pacer:false,
+     info:"<b>Paroxysmal atrial fibrillation onset.</b> Chaotic atrial depolarisation from multiple ectopic foci. P-waves absent; fibrillatory baseline 350–600/min. Irregular ventricular response 120 bpm. Palpitations, dyspnoea. <span class='pill py'>PAF</span>"},
+    {id:3,lbl:"Persistent AF",badge:"AF",hr:136,bp:148,spo2:92,ef:43,flow:2.7,pat:100,sten:0,lumen:"3.8mm",rhythm:"Irreg. Irreg.",
+     risk:68,rLbl:"High",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Persistent AF",
+     alert:{c:"ac",t:"Persistent AF >7 days — LAA thrombus risk — anticoagulate NOW"},pacer:false,
+     info:"<b>Persistent AF (&gt;7 days).</b> LAA stasis — thrombus risk high. DOAC mandatory (CHA₂DS₂-VASc ≥2). Tachycardia-induced cardiomyopathy risk if untreated &gt;4 weeks. Rate vs rhythm control decision required. <span class='pill pr'>High Risk</span>"},
+    {id:4,lbl:"Rate Control",badge:"β-block",hr:82,bp:126,spo2:96,ef:50,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Controlled Irreg.",
+     risk:38,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Rate Ctrl",
+     alert:{c:"ai",t:"Metoprolol 50mg BD — target ventricular rate <110 bpm"},pacer:false,
+     info:"<b>Rate control with metoprolol initiated.</b> Ventricular rate 82 bpm. AF rhythm persists but ventricular response regularised. Anticoagulation continued. Echo at 4 weeks. AFFIRM trial supports rate control equivalence. <span class='pill pb'>Rate Controlled</span>"},
+    {id:5,lbl:"DC Cardioversion",badge:"DCCV",hr:67,bp:117,spo2:98,ef:60,flow:4.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:18,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Cardioverted",
+     alert:null,pacer:false,ecgOvr:"Normal",
+     info:"<b>Synchronised DC cardioversion — 200J biphasic.</b> Sinus rhythm restored. TEE pre-procedure confirmed no LAA thrombus. Anticoagulation minimum 4 weeks post-DCCV. 50% recurrence at 1 year without ablation. <span class='pill pg'>NSR Restored</span>"},
+    {id:6,lbl:"PV Isolation (PVI)",badge:"Ablation",hr:64,bp:114,spo2:99,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:10,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Post-PVI",
+     alert:null,pacer:false,ecgOvr:"Normal",
+     info:"<b>Pulmonary vein isolation complete.</b> RF ablation lesions encircling all 4 PVs. Bidirectional block confirmed. 60–70% long-term freedom from AF in paroxysmal disease. 3-month blanking period required. <span class='pill pc'>PVI Done</span>"},
+  ]},
+
+  stemi:{name:"STEMI / Acute MI",ecg:"stemi",stages:[
+    {id:1,lbl:"Chest Pain — T=0",badge:"0 min",hr:98,bp:160,spo2:93,ef:54,flow:2.8,pat:74,sten:26,lumen:"2.8mm",rhythm:"Sinus Tachycardia",
+     risk:78,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"STEMI",
+     alert:{c:"ac",t:"STEMI — Activate Cath Lab NOW — Door-to-Balloon <90 min"},pacer:false,
+     info:"<b>Anterior STEMI — LAD total occlusion.</b> ST elevation V1–V4. Crushing chest pain, diaphoresis, nausea. Aspirin 300 mg + ticagrelor 180 mg loading. IV heparin 5000U. ECG transmitted to Cath Lab. <span class='pill pr'>STEMI</span>"},
+    {id:2,lbl:"Total LAD Occlusion",badge:"TIMI 0",hr:106,bp:100,spo2:90,ef:37,flow:1.0,pat:8,sten:92,lumen:"0.3mm",rhythm:"Ectopic Beats",
+     risk:94,rLbl:"Imminent MI",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"TIMI 0",
+     alert:{c:"ac",t:"Complete LAD occlusion — anterior WMA — VF risk — defib standby"},pacer:false,
+     info:"<b>Total LAD occlusion — TIMI grade 0.</b> Massive anterior wall ischaemia. LV anterior wall akinetic. Troponin rising. VF risk elevated — defibrillator on standby. Guidewire advancing across occlusion. <span class='pill pr'>Total Occlusion</span>"},
+    {id:3,lbl:"Thrombectomy + Wire",badge:"D2B 45m",hr:100,bp:108,spo2:93,ef:40,flow:1.8,pat:30,sten:70,lumen:"1.1mm",rhythm:"Ectopic",
+     risk:82,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"PCI Active",
+     alert:{c:"ac",t:"Thrombus aspiration — reperfusion arrhythmias expected — monitor"},pacer:false,
+     info:"<b>Wire crossing occlusion — thrombectomy catheter.</b> TIMI 0→1. High thrombus burden. Bivalirudin bolus. Balloon pre-dilatation next. Reperfusion VF/VT risk — magnesium 2g IV prophylaxis. <span class='pill po'>Active PCI</span>"},
+    {id:4,lbl:"Reperfusion TIMI 3",badge:"TIMI 3",hr:89,bp:113,spo2:95,ef:44,flow:3.2,pat:62,sten:38,lumen:"2.3mm",rhythm:"Regular",
+     risk:58,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Reperfused",
+     alert:{c:"aw",t:"TIMI 3 flow restored — ST resolving — troponin peaking"},pacer:false,
+     info:"<b>TIMI 3 flow restored.</b> ST resolution 60%. Reperfusion injury — ROS burst, calcium overload. Troponin I peaking (reflects myonecrosis extent). Stent deployment imminent. Watch for reperfusion VF. <span class='pill py'>Reperfused</span>"},
+    {id:5,lbl:"DES in Culprit",badge:"DES",hr:80,bp:118,spo2:96,ef:48,flow:4.2,pat:92,sten:8,lumen:"3.5mm",rhythm:"Regular",
+     risk:38,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Stented",
+     alert:null,pacer:false,stent:true,
+     info:"<b>3.5×28 mm DES in proximal LAD.</b> Inflation 14 atm. FFR post-stent 0.92. OCT confirms good stent apposition. Troponin peak 12,000 U/L. Anterior WMA on echo. DAPT lifelong. <span class='pill pb'>Stented</span>"},
+    {id:6,lbl:"6-Week Review",badge:"D42",hr:66,bp:114,spo2:99,ef:52,flow:4.9,pat:96,sten:4,lumen:"3.7mm",rhythm:"Regular",
+     risk:16,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Recovered",
+     alert:null,pacer:false,stent:true,
+     info:"<b>Good LV recovery at 6 weeks.</b> EF improved 38%→52% — stunning resolved. Anterior WMA improving. ICD not required (EF &gt;35%). Cardiac rehab completed. Annual MACE risk 3.8%. <span class='pill pg'>Recovering</span>"},
+  ]},
+
+  hf:{name:"Heart Failure (HFrEF)",ecg:"lbbb",stages:[
+    {id:1,lbl:"Compensated HFrEF",badge:"NYHA II",hr:85,bp:134,spo2:95,ef:35,flow:3.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:44,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"HFrEF",
+     alert:{c:"ai",t:"HFrEF EF 35% — NYHA II — GDMT optimisation in progress"},pacer:false,
+     info:"<b>Heart failure with reduced EF (HFrEF).</b> EF 35%, NYHA class II. Compensated by RAAS + SNS activation. BNP elevated. ACE inhibitor + beta-blocker + loop diuretic initiated. <span class='pill py'>HFrEF</span>"},
+    {id:2,lbl:"Acute Decompensation",badge:"NYHA IV",hr:120,bp:86,spo2:85,ef:20,flow:1.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",
+     risk:90,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"ADHF",
+     alert:{c:"ac",t:"Acute decompensated HF — pulmonary oedema — ICU transfer"},pacer:false,
+     info:"<b>Acute decompensated heart failure.</b> Flash pulmonary oedema — PCWP &gt;30 mmHg. EF critically depressed at 20%. IV furosemide 80 mg + GTN infusion. Consider dobutamine inotrope. Immediate ICU. <span class='pill pr'>ADHF</span>"},
+    {id:3,lbl:"IV Diuresis",badge:"Rx",hr:96,bp:105,spo2:92,ef:27,flow:2.7,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:64,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Stabilising",
+     alert:{c:"aw",t:"IV furosemide — UO 130 ml/hr — AKI risk — electrolytes Q6H"},pacer:false,
+     info:"<b>IV furosemide + dobutamine 5 mcg/kg/min.</b> Urine output 130 ml/hr. Fluid removal 2.5L in 24h. Oedema resolving. Creatinine trending — hold spironolactone. Daily weights and fluid balance chart. <span class='pill pb'>Stabilising</span>"},
+    {id:4,lbl:"GDMT Optimisation",badge:"GDMT",hr:76,bp:116,spo2:96,ef:38,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:34,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"GDMT",
+     alert:null,pacer:false,
+     info:"<b>GDMT quadruple therapy commenced.</b> Sacubitril/valsartan (ARNI) + carvedilol + eplerenone + empagliflozin (SGLT2i). PARADIGM-HF + DAPA-HF + EMPEROR-Reduced trial evidence base. BNP ↓ 62%. <span class='pill pb'>GDMT</span>"},
+    {id:5,lbl:"LVAD Implantation",badge:"LVAD",hr:72,bp:66,spo2:97,ef:18,flow:5.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Continuous",
+     risk:50,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"LVAD",
+     alert:{c:"ai",t:"HeartMate 3 — 5.2 L/min — non-pulsatile flow — MAP 66 mmHg"},pacer:false,
+     info:"<b>HeartMate 3 LVAD implanted.</b> Centrifugal continuous-flow pump at 5400 rpm. Inflow cannula in LV apex, outflow to ascending aorta. Bridge-to-transplant or destination therapy. INR target 2.0–3.0. <span class='pill pp'>LVAD Active</span>"},
+    {id:6,lbl:"Cardiac Transplant",badge:"HTx",hr:96,bp:118,spo2:99,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:14,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Post-HTx",
+     alert:null,pacer:false,
+     info:"<b>Orthotopic cardiac transplantation.</b> Bicaval anastomosis. Denervated heart — resting HR ~96 bpm initially (no vagal tone). Triple immunosuppression: tacrolimus + MMF + prednisolone. Median survival 13 years. <span class='pill pc'>Post-HTx</span>"},
+  ]},
+
+  valve:{name:"Valve Disease / TAVR",ecg:"normal",stages:[
+    {id:1,lbl:"Severe Aortic Stenosis",badge:"AS",hr:76,bp:106,spo2:94,ef:54,flow:3.1,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:64,rLbl:"High",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Severe AS",
+     alert:{c:"aw",t:"Severe AS — AVA 0.7 cm² — mean gradient 48 mmHg — intervene"},pacer:false,
+     info:"<b>Severe calcific aortic stenosis.</b> AVA 0.7 cm² (severe &lt;1.0 cm²). Mean gradient 48 mmHg. Heyde triad: angina, syncope, dyspnoea. 50% 2-year mortality without valve replacement. <span class='pill pr'>Severe AS</span>"},
+    {id:2,lbl:"TAVR Planning",badge:"Pre-TAVR",hr:78,bp:104,spo2:93,ef:50,flow:2.9,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:56,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Pre-TAVR",
+     alert:{c:"ai",t:"TAVR pathway — heart team consensus — CT planning commenced"},pacer:false,
+     info:"<b>TAVR pathway selected.</b> STS surgical risk 8.2% (high risk). CT-TAVR planning: 23 mm annulus → 26 mm Sapien 3. Bicuspid anatomy — higher paravalvular leak risk. Femoral access viable at 7 mm. <span class='pill pb'>Pre-TAVR</span>"},
+    {id:3,lbl:"Valve Deployment",badge:"Active",hr:62,bp:90,spo2:94,ef:48,flow:2.7,pat:100,sten:0,lumen:"3.8mm",rhythm:"Rapid Pacing",
+     risk:52,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Deploying",
+     alert:{c:"aw",t:"Rapid pacing 180 bpm — balloon inflation — valve deployment"},pacer:false,
+     info:"<b>26 mm Sapien 3 being deployed.</b> Rapid ventricular pacing 180 bpm for haemostasis during balloon inflation. AV gradient immediately reduced post-deployment. TEE assessing paravalvular regurgitation. <span class='pill po'>Deploying</span>"},
+    {id:4,lbl:"Post-TAVR Assessment",badge:"Post",hr:70,bp:122,spo2:97,ef:58,flow:4.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:24,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Post-TAVR",
+     alert:null,pacer:false,
+     info:"<b>TAVR successful — no significant paravalvular leak.</b> AVA improved to 1.9 cm². Mean gradient 9 mmHg. LBBB in 12% requiring PPM. DAPT 3–6 months. Discharge day 2–3. <span class='pill pg'>Success</span>"},
+    {id:5,lbl:"Severe Mitral Regurg.",badge:"MR",hr:88,bp:128,spo2:94,ef:50,flow:3.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:48,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Severe MR",
+     alert:{c:"aw",t:"Severe MR — EROA 0.45 cm² — LA and LV volume overload"},pacer:false,
+     info:"<b>Severe degenerative mitral regurgitation.</b> EROA 0.45 cm² (severe &gt;0.4). Posterior P2 leaflet prolapse (Barlow's disease). Eccentric jet on echo. COAPT trial: MitraClip vs surgery decision. <span class='pill py'>Severe MR</span>"},
+    {id:6,lbl:"MitraClip Repair",badge:"MCV",hr:70,bp:118,spo2:98,ef:60,flow:4.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:14,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Repaired",
+     alert:null,pacer:false,
+     info:"<b>MitraClip NT edge-to-edge repair.</b> MR severe → trace. Transseptal access. Clip grasping A2-P2 leaflets. COAPT trial: 38% ↓ HF hospitalisation at 2 years. Discharge day 1. <span class='pill pg'>Repaired</span>"},
+  ]},
+
+  hcm:{name:"Hypertrophic Cardiomyopathy",ecg:"lbbb",stages:[
+    {id:1,lbl:"Asymmetric Hypertrophy",badge:"HCM",hr:78,bp:122,spo2:97,ef:72,flow:4.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:30,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"HCM",
+     alert:{c:"ai",t:"IVS 22 mm — asymmetric septal hypertrophy — SAM present"},pacer:false,
+     info:"<b>Hypertrophic cardiomyopathy — asymmetric septal hypertrophy.</b> IVS 22 mm (normal &lt;12 mm). Sarcomere gene mutation (MYH7/MYBPC3). EF supranormal 72% — diastolic dysfunction primary. Systolic anterior motion (SAM) of mitral valve causing LVOTO. <span class='pill py'>HCM</span>"},
+    {id:2,lbl:"LVOT Obstruction",badge:"LVOTO",hr:88,bp:142,spo2:95,ef:74,flow:3.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:52,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"LVOTO",
+     alert:{c:"aw",t:"LVOT gradient 68 mmHg — SAM-septal contact — beta-blocker urgently"},pacer:false,
+     info:"<b>Significant LVOT obstruction.</b> Peak LVOT gradient 68 mmHg (severe &gt;50 mmHg). SAM-septal contact causing dynamic obstruction. Exertional syncope risk. Avoid vasodilators. Metoprolol 100 mg BD or disopyramide added. <span class='pill py'>LVOTO</span>"},
+    {id:3,lbl:"Ventricular Arrhythmia",badge:"VT Risk",hr:145,bp:88,spo2:91,ef:68,flow:2.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"NSVT",
+     risk:82,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"SCD Risk",
+     alert:{c:"ac",t:"NSVT on Holter — SCD risk HIGH — ICD evaluation required"},pacer:false,
+     info:"<b>Non-sustained VT on 48h Holter.</b> 5 SCD risk factors present (NSVT, IVS ≥30 mm, unexplained syncope, family history). HCM Risk-SCD score 6.2% at 5 years → ICD implant recommended. Avoid competitive sport. <span class='pill pr'>SCD Risk</span>"},
+    {id:4,lbl:"ICD Implantation",badge:"ICD",hr:74,bp:118,spo2:97,ef:70,flow:3.9,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:28,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"ICD",
+     alert:null,pacer:true,pacerRate:74,
+     info:"<b>Single-chamber ICD implanted for primary SCD prevention.</b> Subcutaneous ICD (S-ICD) preferred — no pacing needed. VF/VT detection zone &gt;200 bpm. Appropriate shock therapy reduces SCD mortality &gt;90%. Genetic counselling for first-degree relatives. <span class='pill pp'>ICD Active</span>"},
+    {id:5,lbl:"Septal Reduction",badge:"MSSR",hr:70,bp:114,spo2:98,ef:65,flow:4.5,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:18,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Post-MSSR",
+     alert:{c:"ai",t:"Alcohol septal ablation — LVOT gradient 12 mmHg post-procedure"},pacer:true,pacerRate:70,
+     info:"<b>Alcohol septal ablation (ASA) performed.</b> 2 mL 98% ethanol injected into 1st septal perforator. Iatrogenic septal MI creates controlled scar. LVOT gradient 68→12 mmHg. Temporary pacemaker — 10% require permanent PPM for CCHB. <span class='pill pb'>Post-ASA</span>"},
+    {id:6,lbl:"Long-term Management",badge:"D365",hr:68,bp:112,spo2:99,ef:62,flow:4.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:12,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stable",
+     alert:null,pacer:true,pacerRate:68,
+     info:"<b>Stable on long-term HCM management.</b> Annual echo surveillance. Mavacamten (MyoKardia) — cardiac myosin inhibitor reduces SAM and LVOT gradient. Annual ICD check. Light aerobic exercise permitted. MACE risk &lt;1%/year with ICD. <span class='pill pg'>Stable</span>"},
+  ]},
+
+  tamponade:{name:"Cardiac Tamponade",ecg:"normal",stages:[
+    {id:1,lbl:"Small Pericardial Effusion",badge:"Mild",hr:84,bp:128,spo2:96,ef:60,flow:4.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:18,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Mild",
+     alert:{c:"ai",t:"50 mL pericardial effusion — monitor — likely viral pericarditis"},pacer:false,
+     info:"<b>Small pericardial effusion (~50 mL).</b> Echo: posterior echo-free space 6 mm. Likely viral/idiopathic pericarditis. NSAIDs + colchicine first-line. Serial echo at 2 weeks. No haemodynamic compromise. Pericardial pressure &lt;5 mmHg. <span class='pill pg'>Mild</span>"},
+    {id:2,lbl:"Moderate Effusion",badge:"Moderate",hr:102,bp:118,spo2:94,ef:55,flow:3.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",
+     risk:44,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Monitor",
+     alert:{c:"aw",t:"250 mL effusion — RV diastolic collapse — Beck triad developing"},pacer:false,
+     info:"<b>Moderate effusion (~250 mL) with early tamponade physiology.</b> RV free wall diastolic collapse on echo. Beck's triad evolving: hypotension, muffled heart sounds, JVD. Electrical alternans on ECG. Pericardial pressure approaching RA pressure. Admit for monitoring. <span class='pill py'>Moderate</span>"},
+    {id:3,lbl:"Cardiac Tamponade",badge:"Tamponade",hr:130,bp:80,spo2:88,ef:42,flow:1.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Electrical Alternans",
+     risk:92,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"EMERGENCY",
+     alert:{c:"ac",t:"Cardiac tamponade — obstructive shock — pericardiocentesis NOW"},pacer:false,ecgOvr:"Alternans",
+     info:"<b>Cardiac tamponade — haemodynamic emergency.</b> Pericardial pressure &gt; RV diastolic pressure. Obstructive shock: CO critically reduced. Pulsus paradoxus &gt;20 mmHg. Electrical alternans on ECG. Immediate echo-guided pericardiocentesis mandatory — do NOT delay. <span class='pill pr'>EMERGENCY</span>"},
+    {id:4,lbl:"Pericardiocentesis",badge:"Active",hr:112,bp:96,spo2:93,ef:48,flow:2.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",
+     risk:60,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Draining",
+     alert:{c:"aw",t:"Pericardiocentesis active — 280 mL drained — haemodynamics improving"},pacer:false,
+     info:"<b>Echo-guided pericardiocentesis in progress.</b> Subxiphoid approach, 16G needle, J-wire, pigtail catheter. 280 mL haemoserous fluid drained. BP improving. RV collapse resolving on echo. Fluid sent for cytology, culture, LDH/protein (Light's criteria). <span class='pill po'>Draining</span>"},
+    {id:5,lbl:"Pericardial Drain In Situ",badge:"Draining",hr:88,bp:114,spo2:96,ef:55,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:32,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Monitoring",
+     alert:{c:"ai",t:"Drain output 30 mL/hr — monitor for reaccumulation — echo at 24h"},pacer:false,
+     info:"<b>Pericardial drain in situ.</b> Ongoing drainage 30 mL/hr — concerning for haemorrhagic cause. Malignant effusion suspected (lung/breast primary). CT chest/abdomen/pelvis ordered. Pericardioscopy if recurrent. Consider pericardial window if output persists &gt;72h. <span class='pill py'>Draining</span>"},
+    {id:6,lbl:"Resolution / Follow-Up",badge:"Resolved",hr:72,bp:118,spo2:99,ef:62,flow:4.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:10,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Resolved",
+     alert:null,pacer:false,
+     info:"<b>Effusion resolved — drain removed.</b> Echo: trivial residual effusion 5 mm. Drain removed at 48h when output &lt;25 mL/day. Aetiology confirmed: idiopathic (40%), viral. Colchicine 3 months to prevent recurrence. Echo at 1 and 3 months. <span class='pill pg'>Resolved</span>"},
+  ]},
+
+  endocarditis:{name:"Infective Endocarditis",ecg:"normal",stages:[
+    {id:1,lbl:"Bacteraemia / Seeding",badge:"Early IE",hr:92,bp:134,spo2:96,ef:60,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:48,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"IE Suspect",
+     alert:{c:"aw",t:"Fever + new murmur + bacteraemia — Duke criteria — blood cultures x3"},pacer:false,
+     info:"<b>Suspected infective endocarditis.</b> Modified Duke criteria: 1 major (positive blood cultures) + 2 minor (fever 38.4°C, predisposing cardiac lesion). S. aureus bacteraemia — most aggressive pathogen. 3 sets blood cultures before antibiotics. Echo within 24h. <span class='pill py'>IE Suspect</span>"},
+    {id:2,lbl:"Vegetation on Mitral Valve",badge:"Confirmed",hr:106,bp:116,spo2:93,ef:54,flow:3.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:70,rLbl:"High",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Confirmed IE",
+     alert:{c:"ac",t:"12 mm mitral vegetation — embolic risk HIGH — antibiotic therapy NOW"},pacer:false,
+     info:"<b>TOE confirms 12 mm posterior mitral leaflet vegetation.</b> S. aureus MSSA — flucloxacillin 2g IV Q4H + gentamicin synergy. Embolic stroke risk 15–35%/year with vegetation &gt;10 mm. Ophthalmology and neurology consulted. Surgery review at 1 week. <span class='pill pr'>Confirmed IE</span>"},
+    {id:3,lbl:"Septic Emboli",badge:"Emboli",hr:118,bp:102,spo2:90,ef:48,flow:2.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",
+     risk:85,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Emboli",
+     alert:{c:"ac",t:"Septic emboli — splenic infarct + renal — urgent surgical review"},pacer:false,
+     info:"<b>Septic embolic events.</b> Splenic and renal infarcts on CT. Osler nodes, Janeway lesions, Roth spots. Vegetation now 16 mm — surgical indication (size &gt;15 mm + emboli). Haematology: WBC 22, CRP 280, procalcitonin 8.4. Blood cultures persistent positive at 72h. <span class='pill pr'>Emboli</span>"},
+    {id:4,lbl:"Valve Surgery",badge:"MVR",hr:88,bp:108,spo2:95,ef:50,flow:3.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:56,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Post-MVR",
+     alert:{c:"aw",t:"Mitral valve replacement — mechanical valve — INR target 2.5–3.5"},pacer:false,
+     info:"<b>Emergency mitral valve replacement (MVR).</b> Vegetation excised, posterior leaflet reconstructed, 29 mm St Jude mechanical prosthesis implanted. Annular abscess found — debrided. Post-op antibiotics continue full 6-week course (IV until D14, then oral). <span class='pill pb'>Post-MVR</span>"},
+    {id:5,lbl:"Antibiotic Completion",badge:"W4",hr:76,bp:114,spo2:97,ef:55,flow:4.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:28,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"W4 Abx",
+     alert:{c:"ai",t:"Week 4 IV antibiotics — PICC line — CRP normalising — echo at W6"},pacer:false,
+     info:"<b>Week 4 of 6-week IV antibiotic course.</b> Flucloxacillin 2g IV Q4H via PICC. CRP 18 (↓ from 280). Blood cultures negative x5. Mechanical valve functioning well on echo. INR therapeutic at 2.8. Renal function recovering (AKI from emboli resolving). <span class='pill py'>W4 Abx</span>"},
+    {id:6,lbl:"Cure — Long-term F/U",badge:"Cured",hr:70,bp:116,spo2:99,ef:60,flow:4.7,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:12,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Cured",
+     alert:null,pacer:false,
+     info:"<b>IE cured — 6-week antibiotic course completed.</b> CRP normal, blood cultures negative. Mechanical valve functioning well. Lifelong anticoagulation (warfarin, INR 2.5–3.5). Dental prophylaxis mandatory. IE recurrence risk 3–5%/year. Annual echo surveillance. <span class='pill pg'>Cured</span>"},
+  ]},
+};
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let activeKey='cad', stageIdx=0, ecgRate=72, ecgMode='normal';
+let beatOn=true, rotateOn=false, wireOn=false, xrayOn=false, glowOn=true;
+let hrManual=null, currentView='beat', targetBeatSpd=1.0;
+
+// ═══════════════════════════════════════════════════════════
+//  DISEASE TABS
+// ═══════════════════════════════════════════════════════════
+const SHORT={cad:'CAD',pacemaker:'Pacer',afib:'AF',stemi:'STEMI',hf:'Heart Failure',valve:'Valve',hcm:'HCM',tamponade:'Tamponade',endocarditis:'Endocarditis'};
+function renderTabs(){
+  document.getElementById('disTabs').innerHTML=
+    Object.keys(DISEASES).map(k=>
+      `<button class="dtab${k===activeKey?' active':''}" onclick="switchDis('${k}')">${SHORT[k]}</button>`
+    ).join('');
+}
+function switchDis(k){ activeKey=k; stageIdx=0; renderTabs(); applyStage(0); }
+
+// ═══════════════════════════════════════════════════════════
+//  STAGE LIST
+// ═══════════════════════════════════════════════════════════
+function renderStages(){
+  const stages=DISEASES[activeKey].stages;
+  document.getElementById('stageList').innerHTML=stages.map((s,i)=>`
+    <button class="stg-btn ${i===stageIdx?'active':i<stageIdx?'done':''}" onclick="goStage(${i})">
+      <div class="stg-dot"></div><span>${s.lbl}</span>
+      <span class="stg-badge">${s.badge}</span>
+    </button>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  APPLY STAGE
+// ═══════════════════════════════════════════════════════════
+function applyStage(i){
+  stageIdx=i;
+  const D=DISEASES[activeKey], s=D.stages[i];
+  document.getElementById('rpModule').textContent=D.name;
+  document.getElementById('vpTitle').textContent=`${D.name} — ${s.lbl}`;
+
+  // Vitals
+  const hr=hrManual!==null?hrManual:s.hr;
+  setVital('vHR','vc-hr',hr, hr>100?'vr':hr>86?'vy':'vg', hr>100?'red':hr>86?'yellow':'green');
+  setVital('vBP','vc-bp',s.bp, s.bp>150?'vr':s.bp>135?'vy':'vb', s.bp>150?'red':s.bp>135?'yellow':'blue');
+  setVital('vSPO2','vc-spo2',s.spo2, s.spo2<92?'vr':s.spo2<95?'vy':'vg', s.spo2<92?'red':s.spo2<95?'yellow':'green');
+  setVital('vEF','vc-ef',s.ef, s.ef<35?'vr':s.ef<50?'vy':'vc', s.ef<35?'red':s.ef<50?'yellow':'cyan');
+
+  // ECG
+  ecgRate=hrManual!==null?hrManual:s.hr;
+  ecgMode=s.ecgOvr?'_ovr':D.ecg;
+  const ecgLbls={normal:'NSR',afib:'AF — Irreg',paced:'Paced',lbbb:'LBBB',stemi:'ST-Elevation',_ovr:s.ecgOvr||''};
+  const ecgClrs={normal:'var(--green)',afib:'var(--yellow)',paced:'var(--purple)',lbbb:'var(--blue)',stemi:'var(--red)',_ovr:'var(--muted2)'};
+  const eb=document.getElementById('ecgBadge');
+  eb.textContent=ecgLbls[ecgMode]; eb.style.color=ecgClrs[ecgMode]; eb.style.borderColor=ecgClrs[ecgMode]+'44';
+
+  // Risk
+  document.getElementById('riskBar').style.width=s.risk+'%';
+  document.getElementById('riskBar').style.background=s.rClr;
+  const rn=document.getElementById('riskNum'); rn.textContent=s.rLbl; rn.style.color=s.rClr;
+  const rt=document.getElementById('riskTag');
+  rt.textContent=s.rTag; rt.style.color=s.rClr; rt.style.background=s.rBg; rt.style.borderColor=s.rBdr;
+
+  // Alert
+  const ab=document.getElementById('alertBar');
+  if(s.alert){ ab.className=`alert-bar show ${s.alert.c}`; document.getElementById('alertTxt').textContent=s.alert.t; }
+  else ab.className='alert-bar';
+
+  // Pacemaker
+  const pw=document.getElementById('pacerWidget');
+  if(s.pacer){ pw.classList.add('show'); document.getElementById('pacerRate').textContent=s.pacerRate||70; }
+  else pw.classList.remove('show');
+
+  // HUD
+  document.getElementById('hdLumen').textContent=s.lumen;
+  const hp=document.getElementById('hdPat'); hp.textContent=s.pat+'%';
+  document.getElementById('hcPat').className='hchip'+(s.pat<50?' crit':s.pat<80?' warn':' ok');
+  document.getElementById('hdSten').textContent=s.sten+'%';
+  document.getElementById('hcSten').className='hchip'+(s.sten>70?' crit':s.sten>30?' warn':' ok');
+  document.getElementById('hdFlow').textContent=(s.flow||5).toFixed(1)+' L/min';
+  document.getElementById('hcFlow').className='hchip'+(s.flow<2?' crit':s.flow<3.5?' warn':' ok');
+  document.getElementById('hdRhythm').textContent=s.rhythm||'Regular';
+
+  // Notes
+  document.getElementById('notesBody').innerHTML=s.info;
+
+  // Vessel
+  drawVessel(s);
+
+  // Beat speed
+  targetBeatSpd=s.hr/72;
+
+  renderStages();
+}
+
+function setVital(valId,cardId,val,valCls,cardClr){
+  const el=document.getElementById(valId); el.textContent=val; el.className='v-val '+valCls;
+  document.getElementById(cardId).className='vcard vc-'+cardClr;
+}
+function goStage(i){ applyStage(i); }
+function nextStep(){ const L=DISEASES[activeKey].stages.length; if(stageIdx<L-1)applyStage(stageIdx+1); }
+function prevStep(){ if(stageIdx>0)applyStage(stageIdx-1); }
+function hrOverride(v){
+  hrManual=parseInt(v);
+  document.getElementById('hrDisplay').textContent=v;
+  const pct=((v-30)/(200-30)*100).toFixed(1)+'%';
+  document.getElementById('hrSlider').style.setProperty('--pct',pct);
+  applyStage(stageIdx);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VESSEL CROSS-SECTION
+// ═══════════════════════════════════════════════════════════
+function drawVessel(s){
+  const svg=document.getElementById('vesselSvg');
+  if(!svg) return;
+  // Use a namespace-aware approach for SVG
+  const cx=55,cy=50,oR=32,maxPl=22;
+  const pR=(s.sten/100)*maxPl, iR=oR-pR;
+  const hasStent=s.stent||false, hasBalloon=s.balloon||false;
+  let h=`<rect width="110" height="96" fill="#06080e"/>`;
+  // Outer adventitia
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${oR+4}" ry="${oR+4}" fill="#160808" stroke="#5a1515" stroke-width="1.2"/>`;
+  // Plaque
+  if(pR>1){
+    const pc=s.sten>70?'#c8950e':'#b07e0a';
+    h+=`<ellipse cx="${cx}" cy="${cy}" rx="${oR+2}" ry="${oR+2}" fill="${pc}" opacity=".88"/>`;
+    h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR+1.5}" ry="${iR+1.5}" fill="#06080e"/>`;
+  }
+  // Balloon
+  if(hasBalloon){
+    h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR+4}" ry="${iR+4}" fill="none" stroke="#3b9eff" stroke-width="1.4" stroke-dasharray="3 2" opacity=".75"/>`;
+    h+=`<line x1="${cx}" y1="${cy-iR-12}" x2="${cx}" y2="${cy-iR-2}" stroke="#3b9eff" stroke-width="1" opacity=".5"/>`;
+  }
+  // Stent struts
+  if(hasStent){
+    const sr=iR+2.5;
+    for(let a=0;a<360;a+=30){
+      const r=a*Math.PI/180;
+      const x1=cx+(sr-3)*Math.cos(r),y1=cy+(sr-3)*Math.sin(r);
+      const x2=cx+sr*Math.cos(r+15*Math.PI/180),y2=cy+sr*Math.sin(r+15*Math.PI/180);
+      const x3=cx+(sr-3)*Math.cos(r+30*Math.PI/180),y3=cy+(sr-3)*Math.sin(r+30*Math.PI/180);
+      h+=`<polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="#a0b4c8" stroke-width=".9" opacity=".9"/>`;
+    }
+  }
+  // Lumen
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR}" ry="${iR}" fill="#0c040f"/>`;
+  // Blood cells
+  const n=Math.round((s.flow||5)/5*18);
+  for(let i=0;i<n;i++){
+    const a=(i/n)*2*Math.PI, r2=(iR-3)*Math.sqrt(Math.random());
+    const px=cx+r2*Math.cos(a+Math.random()*.6), py=cy+r2*Math.sin(a+Math.random()*.6);
+    h+=`<circle cx="${px}" cy="${py}" r="${1.1+Math.random()*1.5}" fill="#e84040" opacity="${.35+Math.random()*.55}"/>`;
+  }
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR}" ry="${iR}" fill="none" stroke="#e84040" stroke-width=".5" opacity=".22"/>`;
+  h+=`<text x="3" y="92" font-size="7.5" fill="#3a4a68" font-family="JetBrains Mono,monospace">LAD  ${s.sten}% stenosis</text>`;
+  svg.innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ECG ENGINE
+// ═══════════════════════════════════════════════════════════
+const ecgCv=document.getElementById('ecgCanvas');
+const ecgCx=ecgCv.getContext('2d');
+let ecgBuf=new Array(136).fill(.5), ecgPh=0;
+
+function ecgSample(t,mode){
+  const m=t%1;
+  if(mode==='afib'){
+    const n=.048*Math.sin(t*52.3)+.032*Math.sin(t*79.1)+.018*Math.sin(t*118.7)+.009*Math.sin(t*207);
+    if(m<.03)return .5+.52*Math.sin(m/.03*Math.PI)+n;
+    if(m<.07)return .5-.11*Math.sin((m-.03)/.04*Math.PI)+n;
+    if(m<.2)return .5+.07*Math.sin((m-.07)/.13*Math.PI)+n;
+    return .5+n;
+  }
+  if(mode==='paced'){
+    if(m<.012)return .5+1.05;
+    if(m<.018)return .5-.35;
+    if(m<.06)return .5+.06;
+    if(m<.13)return .5+.62*Math.sin((m-.06)/.07*Math.PI);
+    if(m<.3)return .5+.1*Math.sin((m-.13)/.17*Math.PI);
+    return .5;
+  }
+  if(mode==='lbbb'){
+    if(m<.04)return .5+.05*Math.sin(m/.04*Math.PI);
+    if(m<.07)return .5-.1*Math.sin((m-.04)/.03*Math.PI);
+    if(m<.14)return .5+.5*Math.sin((m-.07)/.07*Math.PI);
+    if(m<.21)return .5+.38*Math.sin((m-.14)/.07*Math.PI+.45);
+    if(m<.25)return .5-.1*Math.sin((m-.21)/.04*Math.PI);
+    if(m<.38)return .5+.11*Math.sin((m-.25)/.13*Math.PI);
+    return .5;
+  }
+  if(mode==='stemi'){
+    if(m<.05)return .5+.06*Math.sin(m/.05*Math.PI);
+    if(m<.08)return .5-.09*Math.sin((m-.05)/.03*Math.PI);
+    if(m<.11)return .5+.92*Math.sin((m-.08)/.03*Math.PI);
+    if(m<.14)return .5-.24*Math.sin((m-.11)/.03*Math.PI);
+    if(m<.29)return .5+.3-(m-.14)*1.0;
+    if(m<.44)return .5+.18*Math.sin((m-.29)/.15*Math.PI*.8);
+    return .5;
+  }
+  // Normal sinus
+  if(m<.05)return .5+.055*Math.sin(m/.05*Math.PI);
+  if(m<.08)return .5-.085*Math.sin((m-.05)/.03*Math.PI);
+  if(m<.11)return .5+.84*Math.sin((m-.08)/.03*Math.PI);
+  if(m<.14)return .5-.23*Math.sin((m-.11)/.03*Math.PI);
+  if(m<.27)return .5+.16*Math.sin((m-.14)/.13*Math.PI);
+  return .5;
+}
+const ECG_C={normal:'#2ecc71',afib:'#f0a500',paced:'#a855f7',lbbb:'#3b9eff',stemi:'#e84040',_ovr:'#6b7fa8'};
+function drawECG(){
+  const w=ecgCv.width,h=ecgCv.height;
+  ecgCx.fillStyle='#06080e'; ecgCx.fillRect(0,0,w,h);
+  ecgCx.strokeStyle='rgba(46,204,113,.12)'; ecgCx.lineWidth=.5;
+  for(let x=0;x<w;x+=13){ecgCx.beginPath();ecgCx.moveTo(x,0);ecgCx.lineTo(x,h);ecgCx.stroke();}
+  for(let y=0;y<h;y+=13){ecgCx.beginPath();ecgCx.moveTo(0,y);ecgCx.lineTo(w,y);ecgCx.stroke();}
+  const modeKey=ecgMode==='_ovr'?'normal':ecgMode;
+  const irr=modeKey==='afib'?(.7+Math.random()*.65):1;
+  ecgPh+=(ecgRate/60)*1.25*irr*.016;
+  ecgBuf.shift(); ecgBuf.push(ecgSample(ecgPh,modeKey));
+  const col=ECG_C[modeKey]||ECG_C.normal;
+  ecgCx.beginPath(); ecgCx.strokeStyle=col; ecgCx.lineWidth=1.7;
+  ecgCx.shadowColor=col; ecgCx.shadowBlur=4;
+  ecgBuf.forEach((v,i)=>{
+    const x=i*2,y=h-v*h*.88-h*.05;
+    i===0?ecgCx.moveTo(x,y):ecgCx.lineTo(x,y);
+  });
+  ecgCx.stroke(); ecgCx.shadowBlur=0;
+}
+setInterval(drawECG,16);
+
+// ═══════════════════════════════════════════════════════════
+//  BABYLON.JS — 3D ENGINE
+// ═══════════════════════════════════════════════════════════
+let engine, bScene, heartBeat=null, heartAnat=null;
+let beatPh=0, animT=0, beatSpd=1.0;
+let glowLayer=null, highlightLayer=null;
+let beatMeshes=[], anatMeshes=[];
+let beatBaseScale=1, anatBaseScale=1; // base scales from fitToSize — never overwrite these
+let beatCenterY=0, anatCenterY=0;     // fitted Y offsets — bob animates relative to these
+
+function initBabylon(){
+  const canvas=document.getElementById('renderCanvas');
+  engine=new BABYLON.Engine(canvas,true,{
+    preserveDrawingBuffer:true,stencil:true,adaptToDeviceRatio:true
+  });
+
+  bScene=new BABYLON.Scene(engine);
+  bScene.clearColor=new BABYLON.Color4(0.024,0.031,0.055,1);  // matches --bg
+
+  // ── Camera ──
+  const cam=new BABYLON.ArcRotateCamera('cam',
+    -Math.PI/2, Math.PI/2.6, 5.5,
+    new BABYLON.Vector3(0,-0.3,0), bScene);
+  cam.lowerRadiusLimit=2.5;
+  cam.upperRadiusLimit=12;
+  cam.wheelPrecision=30;
+  cam.pinchPrecision=60;
+  cam.attachControl(canvas,true);
+  cam.useBouncingBehavior=true;
+  cam.useAutoRotationBehavior=false;
+  window._bCam=cam;
+
+  // ── Lighting ──
+  // Hemisphere ambient
+  const hemi=new BABYLON.HemisphericLight('hemi',new BABYLON.Vector3(0,1,0),bScene);
+  hemi.intensity=0.25;
+  hemi.diffuse=new BABYLON.Color3(1,.85,.85);
+  hemi.groundColor=new BABYLON.Color3(.1,.1,.2);
+
+  // Key light (warm red-orange for cardiac tissue)
+  const key=new BABYLON.DirectionalLight('key',new BABYLON.Vector3(-1,-1,-1),bScene);
+  key.intensity=3.0;
+  key.diffuse=new BABYLON.Color3(1,.55,.45);
+  key.specular=new BABYLON.Color3(1,.4,.3);
+
+  // Fill light (cool blue)
+  const fill=new BABYLON.DirectionalLight('fill',new BABYLON.Vector3(1,.5,1),bScene);
+  fill.intensity=1.2;
+  fill.diffuse=new BABYLON.Color3(.3,.5,1);
+
+  // Rim backlight
+  const rim=new BABYLON.DirectionalLight('rim',new BABYLON.Vector3(0,1,-1),bScene);
+  rim.intensity=0.9;
+  rim.diffuse=new BABYLON.Color3(1,.2,.2);
+
+  // Point light (pulsing heart glow)
+  const pt=new BABYLON.PointLight('pt',new BABYLON.Vector3(0,0,.5),bScene);
+  pt.intensity=2.5;
+  pt.diffuse=new BABYLON.Color3(1,.15,.15);
+  pt.specular=new BABYLON.Color3(1,.3,.3);
+  pt.range=8;
+  window._ptLight=pt;
+
+  // ── Environment (IBL) ──
+  // Use a simple environment texture for nice reflections
+  const envTex=BABYLON.CubeTexture.CreateFromPrefilteredData(
+    'https://assets.babylonjs.com/environments/environmentSpecular.env', bScene);
+  bScene.environmentTexture=envTex;
+  bScene.environmentIntensity=0.6;
+
+  // ── Glow Layer ──
+  glowLayer=new BABYLON.GlowLayer('glow',bScene);
+  glowLayer.intensity=0.6;
+  glowLayer.blurKernelSize=32;
+
+  // ── Highlight Layer ──
+  highlightLayer=new BABYLON.HighlightLayer('hl',bScene);
+
+  // ── Particle system (blood cells) ──
+  buildParticles();
+
+  // ── Grid (floor reference) ──
+  const ground=BABYLON.MeshBuilder.CreateGround('g',{width:14,height:14},bScene);
+  ground.position.y=-2.8;
+  const gMat=new BABYLON.StandardMaterial('gm',bScene);
+  gMat.diffuseColor=new BABYLON.Color3(.06,.1,.18);
+  gMat.emissiveColor=new BABYLON.Color3(.02,.04,.08);
+  gMat.wireframe=true; gMat.alpha=.25;
+  ground.material=gMat;
+
+  // ── Load Models ──
+  loadModels();
+
+  // ── Render loop ──
+  engine.runRenderLoop(()=>{ renderLoop(); bScene.render(); });
+  window.addEventListener('resize',()=>engine.resize());
+}
+
+function buildParticles(){
+  const ps=new BABYLON.ParticleSystem('blood',300,bScene);
+  ps.emitter=new BABYLON.Vector3(0,0,0);
+  ps.minEmitBox=new BABYLON.Vector3(-2.5,-2.5,-2.5);
+  ps.maxEmitBox=new BABYLON.Vector3(2.5,2.5,2.5);
+  // Tiny red spherical cells
+  ps.particleTexture=new BABYLON.Texture(
+    'https://assets.babylonjs.com/textures/flare.png',bScene);
+  ps.color1=new BABYLON.Color4(.9,.2,.2,.4);
+  ps.color2=new BABYLON.Color4(.8,.1,.1,.2);
+  ps.colorDead=new BABYLON.Color4(.5,.05,.05,0);
+  ps.minSize=.02; ps.maxSize=.06;
+  ps.minLifeTime=3; ps.maxLifeTime=6;
+  ps.emitRate=40;
+  ps.minEmitPower=.05; ps.maxEmitPower=.15;
+  ps.updateSpeed=.008;
+  ps.gravity=new BABYLON.Vector3(0,.02,0);
+  ps.start();
+  window._ps=ps;
+}
+
+function loadModels(){
+  setLoaderTxt('Loading models/beating-heart.glb…');
+
+  // Load beating heart
+  BABYLON.SceneLoader.ImportMeshAsync('','models/','beating-heart.glb',bScene).then(result=>{
+    heartBeat=new BABYLON.TransformNode('heartBeat',bScene);
+    result.meshes.forEach(m=>{
+      if(m.name==='__root__')return;
+      m.parent=heartBeat;
+      m.receiveShadows=true;
+      beatMeshes.push(m);
+      enhanceMesh(m,'beat');
+    });
+    fitToSize(heartBeat,2.8);
+    beatBaseScale=heartBeat.scaling.x;
+    beatCenterY=heartBeat.position.y;
+    heartBeat.rotation.y=Math.PI; // face forward
+    heartBeat.setEnabled(currentView==='beat');
+
+    setLoaderTxt('Loading models/realistic_human_heart.glb…');
+
+    // Load anatomy heart
+    BABYLON.SceneLoader.ImportMeshAsync('','models/','realistic_human_heart.glb',bScene).then(res2=>{
+      heartAnat=new BABYLON.TransformNode('heartAnat',bScene);
+      res2.meshes.forEach(m=>{
+        if(m.name==='__root__')return;
+        m.parent=heartAnat;
+        m.receiveShadows=true;
+        anatMeshes.push(m);
+        enhanceMesh(m,'anat');
+      });
+      fitToSize(heartAnat,2.8);
+      anatBaseScale=heartAnat.scaling.x;
+      anatCenterY=heartAnat.position.y;
+      heartAnat.rotation.y=Math.PI;
+      heartAnat.setEnabled(currentView==='anatomy');
+      hideLoader();
+    }).catch(()=>{ hideLoader(); });
+
+  }).catch(()=>{
+    // Fallback procedural heart
+    buildFallbackHeart();
+    hideLoader();
+  });
+}
+
+function enhanceMesh(mesh,type){
+  if(!mesh.material)return;
+  const mat=mesh.material;
+  if(type==='beat'){
+    // Make it more vivid/red for the beating heart
+    if(mat instanceof BABYLON.PBRMaterial||mat instanceof BABYLON.PBRMetallicRoughnessMaterial){
+      mat.emissiveColor=new BABYLON.Color3(.25,.02,.02);
+      mat.roughness=Math.min(mat.roughness||.5,.55);
+      mat.metallic=Math.max(mat.metallic||0,.05);
+    } else {
+      mat.emissiveColor=new BABYLON.Color3(.22,.02,.02);
+    }
+    // Add to glow
+    if(glowLayer)glowLayer.addIncludedOnlyMesh(mesh);
+  } else {
+    // Anatomy — more natural, slightly emissive
+    if(mat instanceof BABYLON.PBRMaterial||mat instanceof BABYLON.PBRMetallicRoughnessMaterial){
+      mat.emissiveColor=new BABYLON.Color3(.1,.01,.01);
+    } else {
+      mat.emissiveColor=new BABYLON.Color3(.08,.01,.01);
+    }
+  }
+}
+
+function fitToSize(node,targetSize){
+  const children=node.getChildMeshes();
+  if(!children.length)return 0;
+  let min=new BABYLON.Vector3(Infinity,Infinity,Infinity);
+  let max=new BABYLON.Vector3(-Infinity,-Infinity,-Infinity);
+  children.forEach(m=>{
+    const bi=m.getHierarchyBoundingVectors();
+    min=BABYLON.Vector3.Minimize(min,bi.min);
+    max=BABYLON.Vector3.Maximize(max,bi.max);
+  });
+  const size=max.subtract(min);
+  const maxDim=Math.max(size.x,size.y,size.z);
+  if(maxDim===0)return 0;
+  const scale=targetSize/maxDim;
+  node.scaling=new BABYLON.Vector3(scale,scale,scale);
+  const worldCenter=min.add(max).scale(0.5);
+  const offset=worldCenter.scale(-scale);
+  node.position=offset;
+  return offset.y; // caller stores this as the "resting" Y
+}
+
+function buildFallbackHeart(){
+  // Procedural approximation using Babylon primitives
+  const g=new BABYLON.TransformNode('fbHeart',bScene);
+  const mat=new BABYLON.PBRMaterial('hm',bScene);
+  mat.albedoColor=new BABYLON.Color3(.82,.12,.12);
+  mat.roughness=.4; mat.metallic=.08;
+  mat.emissiveColor=new BABYLON.Color3(.25,.02,.02);
+
+  const m2=new BABYLON.PBRMaterial('hm2',bScene);
+  m2.albedoColor=new BABYLON.Color3(.65,.08,.08);
+  m2.roughness=.5; m2.metallic=.05;
+  m2.emissiveColor=new BABYLON.Color3(.15,.01,.01);
+
+  function sphere(name,d,pos,parent,m){
+    const s=BABYLON.MeshBuilder.CreateSphere(name,{diameter:d,segments:24},bScene);
+    s.position=new BABYLON.Vector3(...pos); s.parent=parent; s.material=m;
+    beatMeshes.push(s); if(glowLayer)glowLayer.addIncludedOnlyMesh(s); return s;
+  }
+  sphere('lv',1.8,[-0.35,-0.05,0],g,mat);
+  sphere('rv',1.42,[0.35,0.08,0.1],g,mat);
+  sphere('la',1.0,[-0.3,0.78,-0.22],g,m2);
+  sphere('ra',0.9,[0.3,0.78,-0.18],g,m2);
+
+  const aoCyl=BABYLON.MeshBuilder.CreateCylinder('ao',{diameterTop:.24,diameterBottom:.32,height:.9,tessellation:16},bScene);
+  aoCyl.position=new BABYLON.Vector3(.06,1.52,.04); aoCyl.rotation.z=.18; aoCyl.parent=g; aoCyl.material=m2;
+  beatMeshes.push(aoCyl);
+
+  const paCyl=BABYLON.MeshBuilder.CreateCylinder('pa',{diameterTop:.2,diameterBottom:.26,height:.65,tessellation:14},bScene);
+  paCyl.position=new BABYLON.Vector3(.32,1.3,.1); paCyl.rotation.z=-.38; paCyl.parent=g; paCyl.material=m2;
+  beatMeshes.push(paCyl);
+
+  const torus=BABYLON.MeshBuilder.CreateTorus('peri',{diameter:2.8,thickness:.04,tessellation:32},bScene);
+  const periMat=new BABYLON.PBRMaterial('peri',bScene);
+  periMat.albedoColor=new BABYLON.Color3(.9,.3,.3);
+  periMat.roughness=.9; periMat.alpha=.08; periMat.backFaceCulling=false;
+  torus.parent=g; torus.material=periMat; beatMeshes.push(torus);
+
+  fitToSize(g,2.8); g.rotation.y=Math.PI;
+  beatBaseScale=g.scaling.x; anatBaseScale=g.scaling.x;
+  beatCenterY=g.position.y; anatCenterY=g.position.y;
+  heartBeat=g;
+  heartAnat=g; // reuse for anatomy view
+  heartBeat.setEnabled(true);
+}
+
+function setLoaderTxt(t){ document.getElementById('loaderTxt').textContent=t; }
+function hideLoader(){
+  const l=document.getElementById('loader');
+  l.classList.add('gone');
+  setTimeout(()=>l.style.display='none',700);
+}
+
+// ─── VIEW SWITCH ───
+function setView(v){
+  currentView=v;
+  document.getElementById('vbBeat').className='vbtn'+(v==='beat'?' active':'');
+  document.getElementById('vbAnat').className='vbtn'+(v==='anatomy'?' active':'');
+  const lbls=['aLA','aRA','aLV','aRV','aAO','aPA'];
+  lbls.forEach(id=>document.getElementById(id).className='ana-lbl'+(v==='anatomy'?' show':''));
+  if(heartBeat)heartBeat.setEnabled(v==='beat');
+  if(heartAnat&&heartAnat!==heartBeat)heartAnat.setEnabled(v==='anatomy');
+}
+
+// ─── SIM CONTROLS ───
+function toggleBeat(){
+  beatOn=!beatOn;
+  const b=document.getElementById('cBeat');
+  b.textContent=beatOn?'❤ Beat ON':'❤ Beat OFF';
+  b.className='cbtn '+(beatOn?'on':'on-red');
+}
+function toggleRotate(){
+  rotateOn=!rotateOn;
+  const b=document.getElementById('cRotate'); b.className='cbtn '+(rotateOn?'on-blue':'');
+  if(window._bCam)window._bCam.useAutoRotationBehavior=rotateOn;
+}
+function toggleWire(){
+  wireOn=!wireOn;
+  [...beatMeshes,...anatMeshes].forEach(m=>{
+    if(!m.material) return;
+    // Clone shared material so we don't corrupt other meshes
+    if(!m._matCloned){ m.material=m.material.clone(m.material.name+'_c'); m._matCloned=true; }
+    m.material.wireframe=wireOn;
+  });
+  document.getElementById('cWire').className='cbtn '+(wireOn?'on-blue':'');
+}
+function toggleXray(){
+  xrayOn=!xrayOn;
+  [...beatMeshes,...anatMeshes].forEach(m=>{
+    if(!m.material) return;
+    if(!m._matCloned){ m.material=m.material.clone(m.material.name+'_c'); m._matCloned=true; }
+    m.material.alpha=xrayOn?.28:1;
+    m.material.backFaceCulling=!xrayOn;
+    if(xrayOn) m.material.transparencyMode=BABYLON.PBRMaterial.PBRMATERIAL_ALPHABLEND;
+  });
+  document.getElementById('cXray').className='cbtn '+(xrayOn?'on-blue':'');
+}
+function toggleGlow(){
+  glowOn=!glowOn;
+  if(glowLayer)glowLayer.intensity=glowOn?.6:0;
+  document.getElementById('cGlow').className='cbtn '+(glowOn?'on':'');
+}
+
+// ─── RENDER LOOP ───
+function renderLoop(){
+  animT+=.016;
+  // Lerp beat speed
+  beatSpd+=(targetBeatSpd-beatSpd)*.04;
+
+  // Heartbeat scale
+  if(beatOn) beatPh+=(ecgRate/60)*beatSpd*.016;
+  const bm=beatPh%1;
+  let sc=0;
+  if(bm<.08) sc=.12*Math.sin(bm/.08*Math.PI);
+  else if(bm<.16) sc=.08*Math.sin((bm-.08)/.08*Math.PI);
+  const hs=1+sc;
+
+  const activeH=currentView==='anatomy'&&heartAnat?heartAnat:heartBeat;
+  if(activeH){
+    const base=currentView==='anatomy'?anatBaseScale:beatBaseScale;
+    const centreY=currentView==='anatomy'?anatCenterY:beatCenterY;
+    const s=base*hs;
+    activeH.scaling=new BABYLON.Vector3(s,s,s);
+    // Bob relative to fitted centre — not absolute 0
+    activeH.position.y=centreY+Math.sin(animT*.18)*.04;
+  }
+
+  // Pulsing point light
+  if(window._ptLight){
+    window._ptLight.intensity=2.2+sc*8;
+    window._ptLight.diffuse=new BABYLON.Color3(1,(.12+sc*.3),(.08+sc*.15));
+  }
+
+  // Emissive pulse on beat meshes
+  if(beatOn){
+    beatMeshes.forEach(m=>{
+      if(m.material&&!wireOn&&!xrayOn){
+        const em=.22+sc*.9;
+        if(m.material.emissiveColor)
+          m.material.emissiveColor=new BABYLON.Color3(em,.02,.02);
+      }
+    });
+  }
+
+  // Glow intensity
+  if(glowLayer)glowLayer.intensity=glowOn?(.45+sc*.8):.0;
+
+  // Particle rate based on HR/flow
+  if(window._ps)window._ps.emitRate=20+ecgRate/2;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+renderTabs();
+applyStage(0);
+
+// Guard: wait for BABYLON to be available (CDN may load async)
+function safeBabylonInit(){
+  if(typeof BABYLON !== 'undefined'){
+    initBabylon();
+  } else {
+    console.warn('Babylon.js not yet loaded — retrying in 200ms…');
+    setTimeout(safeBabylonInit, 200);
+  }
+}
+safeBabylonInit();
+</script>
+</body>
+</html>

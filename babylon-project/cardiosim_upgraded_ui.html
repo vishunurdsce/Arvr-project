@@ -1,0 +1,308 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; font-family: 'Segoe UI', sans-serif; }
+  .sim-shell { display: grid; grid-template-columns: 300px 1fr; min-height: 600px; background: #0d1117; border-radius: 12px; overflow: hidden; border: 0.5px solid #30363d; }
+  .sidebar { background: #161b22; border-right: 0.5px solid #30363d; padding: 0; display: flex; flex-direction: column; }
+  .sidebar-header { padding: 14px 16px; border-bottom: 0.5px solid #30363d; display: flex; align-items: center; gap: 8px; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: #e05555; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
+  .logo-text { font-size: 13px; font-weight: 600; color: #e6edf3; letter-spacing: 0.04em; }
+  .logo-ver { font-size: 11px; color: #8b949e; margin-left: auto; }
+
+  .vitals-strip { padding: 12px 16px; border-bottom: 0.5px solid #30363d; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .vital-card { background: #0d1117; border-radius: 6px; padding: 8px 10px; border: 0.5px solid #30363d; }
+  .vital-label { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .vital-val { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .vital-unit { font-size: 10px; color: #8b949e; margin-left: 2px; }
+  .v-green { color: #3fb950; }
+  .v-yellow { color: #d29922; }
+  .v-red { color: #f85149; }
+  .v-blue { color: #58a6ff; }
+
+  .ecg-wrap { padding: 10px 16px; border-bottom: 0.5px solid #30363d; }
+  .ecg-label { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  canvas#ecg { width: 100%; height: 48px; display: block; }
+
+  .stage-section { padding: 12px 16px; border-bottom: 0.5px solid #30363d; }
+  .section-title { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .stage-btn { width: 100%; text-align: left; padding: 8px 10px; margin-bottom: 4px; border-radius: 6px; border: 0.5px solid #30363d; background: transparent; color: #8b949e; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .15s; }
+  .stage-btn:hover { background: #21262d; color: #e6edf3; border-color: #484f58; }
+  .stage-btn.active { background: #0c2d6b; border-color: #1f6feb; color: #79c0ff; }
+  .stage-btn .badge { font-size: 10px; padding: 1px 6px; border-radius: 9px; background: #21262d; color: #8b949e; margin-left: auto; }
+  .stage-btn.active .badge { background: #1f6feb; color: #cae8ff; }
+  .stage-dot { width: 6px; height: 6px; border-radius: 50%; background: #30363d; flex-shrink: 0; }
+  .stage-btn.active .stage-dot { background: #58a6ff; }
+  .stage-btn.done .stage-dot { background: #3fb950; }
+  .stage-btn.done { color: #7ee787; border-color: #2ea04326; }
+
+  .risk-section { padding: 12px 16px; border-bottom: 0.5px solid #30363d; }
+  .risk-bar-bg { height: 6px; background: #21262d; border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .risk-bar-fill { height: 100%; border-radius: 3px; transition: width .6s ease, background .6s; }
+  .risk-label-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; }
+  .risk-score-text { font-size: 20px; font-weight: 600; }
+  .risk-category { font-size: 11px; padding: 2px 8px; border-radius: 9px; font-weight: 500; }
+
+  .info-section { padding: 12px 16px; flex: 1; }
+  .info-text { font-size: 12px; color: #8b949e; line-height: 1.6; }
+  .info-text b { color: #c9d1d9; font-weight: 500; }
+
+  .action-footer { padding: 12px 16px; border-top: 0.5px solid #30363d; display: flex; gap: 8px; }
+  .btn-primary { flex: 1; padding: 9px; border-radius: 6px; background: #1f6feb; border: none; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: background .15s; }
+  .btn-primary:hover { background: #388bfd; }
+  .btn-secondary { padding: 9px 14px; border-radius: 6px; background: transparent; border: 0.5px solid #30363d; color: #8b949e; font-size: 12px; cursor: pointer; transition: all .15s; }
+  .btn-secondary:hover { background: #21262d; color: #e6edf3; }
+
+  .viewport { background: #0a0e14; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+  .viewport-label { position: absolute; top: 14px; left: 16px; font-size: 10px; color: #484f58; text-transform: uppercase; letter-spacing: 0.08em; }
+  .vessel-wrap { width: 100%; padding: 0 40px; }
+  svg.vessel-svg { width: 100%; overflow: visible; display: block; }
+
+  .hud-row { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 12px; }
+  .hud-chip { background: #161b22; border: 0.5px solid #30363d; border-radius: 9px; padding: 4px 12px; font-size: 11px; color: #8b949e; font-variant-numeric: tabular-nums; }
+  .hud-chip span { color: #58a6ff; font-weight: 500; }
+</style>
+
+<div class="sim-shell">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-dot" id="liveDot"></div>
+      <div class="logo-text">CardioSim</div>
+      <div class="logo-ver">v3.0</div>
+    </div>
+
+    <div class="vitals-strip">
+      <div class="vital-card">
+        <div class="vital-label">Heart rate</div>
+        <div class="vital-val v-green" id="hr">72</div>
+        <div class="vital-unit">bpm</div>
+      </div>
+      <div class="vital-card">
+        <div class="vital-label">BP (sys)</div>
+        <div class="vital-val v-blue" id="bp">120</div>
+        <div class="vital-unit">mmHg</div>
+      </div>
+      <div class="vital-card">
+        <div class="vital-label">SpO₂</div>
+        <div class="vital-val v-green" id="spo2">98</div>
+        <div class="vital-unit">%</div>
+      </div>
+      <div class="vital-card">
+        <div class="vital-label">Flow rate</div>
+        <div class="vital-val v-blue" id="flow">5.0</div>
+        <div class="vital-unit">L/min</div>
+      </div>
+    </div>
+
+    <div class="ecg-wrap">
+      <div class="ecg-label">ECG — Lead II</div>
+      <canvas id="ecg" width="268" height="48"></canvas>
+    </div>
+
+    <div class="stage-section">
+      <div class="section-title">Procedure stages</div>
+      <div id="stage-list"></div>
+    </div>
+
+    <div class="risk-section">
+      <div class="section-title">Stenosis risk score</div>
+      <div class="risk-bar-bg"><div class="risk-bar-fill" id="riskBar" style="width:5%;background:#3fb950"></div></div>
+      <div class="risk-label-row">
+        <div class="risk-score-text v-green" id="riskScore">Low</div>
+        <div class="risk-category" id="riskBadge" style="background:#12261e;color:#3fb950">Stable</div>
+      </div>
+    </div>
+
+    <div class="info-section">
+      <div class="section-title">Clinical notes</div>
+      <div class="info-text" id="infoText">Select a stage to begin the simulation.</div>
+    </div>
+
+    <div class="action-footer">
+      <button class="btn-secondary" onclick="prevStep()">← Back</button>
+      <button class="btn-primary" onclick="nextStep()">Advance stage →</button>
+    </div>
+  </div>
+
+  <div class="viewport">
+    <div class="viewport-label">Cross-section — left anterior descending artery</div>
+    <div class="vessel-wrap">
+      <svg class="vessel-svg" id="vesselSvg" viewBox="0 0 500 160"></svg>
+    </div>
+    <div class="hud-row">
+      <div class="hud-chip">Lumen diameter <span id="hudLumen">3.8mm</span></div>
+      <div class="hud-chip">Patency <span id="hudPatency">100%</span></div>
+      <div class="hud-chip">Stenosis <span id="hudStenosis">0%</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STAGES = [
+  { id:1, label:"Baseline physiology", badge:"Normal",
+    hr:72, bp:120, spo2:98, flow:5.0, patency:100, stenosis:0, lumen:"3.8mm",
+    risk:5, riskLabel:"Low", riskColor:"#3fb950", riskBg:"#12261e", riskBadge:"Stable",
+    info:"<b>Normal artery.</b> Laminar blood flow is unobstructed. The lumen diameter is 3.8mm. Endothelial function is intact with no lipid deposits visible." },
+  { id:2, label:"Plaque accumulation", badge:"Stage I",
+    hr:78, bp:130, spo2:97, flow:3.8, patency:70, stenosis:30, lumen:"2.7mm",
+    risk:35, riskLabel:"Moderate", riskColor:"#d29922", riskBg:"#2d1f00", riskBadge:"Atherosclerosis",
+    info:"<b>Lipid-rich plaque forming.</b> Cholesterol deposits accumulate in the intima. Lumen narrowed to 2.7mm. Patient may be asymptomatic at rest but show exertional angina." },
+  { id:3, label:"Critical stenosis", badge:">70%",
+    hr:94, bp:155, spo2:94, flow:1.2, patency:20, stenosis:75, lumen:"0.9mm",
+    risk:82, riskLabel:"Critical", riskColor:"#f85149", riskBg:"#2d1112", riskBadge:"STEMI risk",
+    info:"<b>Haemodynamically significant obstruction.</b> 75% stenosis. Fractional flow reserve (FFR) &lt;0.8. Immediate intervention indicated. Risk of plaque rupture and acute MI is high." },
+  { id:4, label:"Balloon angioplasty", badge:"PCI",
+    hr:85, bp:138, spo2:96, flow:3.5, patency:75, stenosis:25, lumen:"2.9mm",
+    risk:45, riskLabel:"Moderate", riskColor:"#d29922", riskBg:"#2d1f00", riskBadge:"Post-PTCA",
+    info:"<b>Percutaneous transluminal coronary angioplasty.</b> Balloon inflated to 8–12 atm for 30–60s. Plaque compressed. Elastic recoil remains a concern — stent deployment recommended." },
+  { id:5, label:"Stent deployment", badge:"DES",
+    hr:76, bp:124, spo2:97, flow:4.7, patency:93, stenosis:7, lumen:"3.6mm",
+    risk:15, riskLabel:"Low", riskColor:"#3fb950", riskBg:"#12261e", riskBadge:"Stented",
+    info:"<b>Drug-eluting stent (DES) deployed.</b> Nitinol scaffold prevents elastic recoil. Anti-proliferative drug coating reduces in-stent restenosis risk to &lt;10%. Dual antiplatelet therapy required for 12 months." },
+  { id:6, label:"Post-op recovery", badge:"D30",
+    hr:70, bp:118, spo2:99, flow:5.0, patency:100, stenosis:0, lumen:"3.8mm",
+    risk:8, riskLabel:"Low", riskColor:"#3fb950", riskBg:"#12261e", riskBadge:"Recovered",
+    info:"<b>Haemodynamics fully restored.</b> Vessel patency 100%. Stent endothelialisation progressing normally. Follow-up angiography at 6 months. MACE risk at 1 year estimated &lt;5%." },
+];
+
+let currentStage = 0;
+
+function renderStageList() {
+  const list = document.getElementById('stage-list');
+  list.innerHTML = STAGES.map((s,i) => `
+    <button class="stage-btn ${i===currentStage?'active':i<currentStage?'done':''}" onclick="goToStage(${i})">
+      <div class="stage-dot"></div>
+      <span>${s.label}</span>
+      <span class="badge">${s.badge}</span>
+    </button>`).join('');
+}
+
+function applyStage(idx) {
+  currentStage = idx;
+  const s = STAGES[idx];
+  document.getElementById('hr').textContent = s.hr;
+  document.getElementById('hr').className = 'vital-val ' + (s.hr>90?'v-red':s.hr>80?'v-yellow':'v-green');
+  document.getElementById('bp').textContent = s.bp;
+  document.getElementById('bp').className = 'vital-val ' + (s.bp>145?'v-red':s.bp>130?'v-yellow':'v-blue');
+  document.getElementById('spo2').textContent = s.spo2;
+  document.getElementById('spo2').className = 'vital-val ' + (s.spo2<95?'v-red':s.spo2<97?'v-yellow':'v-green');
+  document.getElementById('flow').textContent = s.flow.toFixed(1);
+  document.getElementById('infoText').innerHTML = s.info;
+  document.getElementById('riskBar').style.width = s.risk+'%';
+  document.getElementById('riskBar').style.background = s.riskColor;
+  document.getElementById('riskScore').textContent = s.riskLabel;
+  document.getElementById('riskScore').style.color = s.riskColor;
+  document.getElementById('riskBadge').textContent = s.riskBadge;
+  document.getElementById('riskBadge').style.color = s.riskColor;
+  document.getElementById('riskBadge').style.background = s.riskBg;
+  document.getElementById('hudLumen').textContent = s.lumen;
+  document.getElementById('hudPatency').textContent = s.patency+'%';
+  document.getElementById('hudStenosis').textContent = s.stenosis+'%';
+  renderStageList();
+  drawVessel(s);
+  ecgRate = s.hr;
+}
+
+function goToStage(i) { applyStage(i); }
+function nextStep() { if(currentStage < STAGES.length-1) applyStage(currentStage+1); }
+function prevStep() { if(currentStage > 0) applyStage(currentStage-1); }
+
+function drawVessel(s) {
+  const svg = document.getElementById('vesselSvg');
+  const w=500, h=160, cx=250, cy=80;
+  const outerR = 48;
+  const plaqueMax = 32;
+  const plaqueR = (s.stenosis/100) * plaqueMax;
+  const innerR = outerR - plaqueR;
+  const showStent = s.id === 5 || s.id === 6;
+  const showBalloon = s.id === 4;
+
+  let content = '';
+  content += `<rect width="500" height="160" fill="#0a0e14"/>`;
+  content += `<ellipse cx="${cx}" cy="${cy}" rx="${outerR+10}" ry="${outerR+10}" fill="none" stroke="#8b2020" stroke-width="0.5" opacity="0.3"/>`;
+  content += `<ellipse cx="${cx}" cy="${cy}" rx="${outerR+4}" ry="${outerR+4}" fill="#1a0808" stroke="#8b2020" stroke-width="1.5"/>`;
+
+  if (plaqueR > 2) {
+    const c = s.id===3?'#c9a227':s.id===4?'#a08020':'#c9a227';
+    content += `<ellipse cx="${cx}" cy="${cy}" rx="${outerR+2}" ry="${outerR+2}" fill="${c}" opacity="0.85"/>`;
+    content += `<ellipse cx="${cx}" cy="${cy}" rx="${innerR+2}" ry="${innerR+2}" fill="#0a0e14"/>`;
+  }
+
+  if (showBalloon) {
+    content += `<ellipse cx="${cx}" cy="${cy}" rx="${innerR+6}" ry="${innerR+6}" fill="none" stroke="#58a6ff" stroke-width="2" stroke-dasharray="4 3" opacity="0.7"/>`;
+    content += `<line x1="${cx}" y1="${cy - innerR - 30}" x2="${cx}" y2="${cy - innerR - 4}" stroke="#58a6ff" stroke-width="1.5" opacity="0.5"/>`;
+  }
+
+  if (showStent) {
+    const sr = innerR + 3;
+    for (let a=0; a<360; a+=30) {
+      const rad = a*Math.PI/180;
+      const x1 = cx + (sr-4)*Math.cos(rad), y1 = cy + (sr-4)*Math.sin(rad);
+      const x2 = cx + sr*Math.cos(rad+15*Math.PI/180), y2 = cy + sr*Math.sin(rad+15*Math.PI/180);
+      const x3 = cx + (sr-4)*Math.cos(rad+30*Math.PI/180), y3 = cy + (sr-4)*Math.sin(rad+30*Math.PI/180);
+      content += `<polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="#b0b8c8" stroke-width="1.2" opacity="0.8"/>`;
+    }
+  }
+
+  const lumFill = s.id===3?'#1a0808':s.id===1||s.id===6?'#100518':'#0e0818';
+  content += `<ellipse cx="${cx}" cy="${cy}" rx="${innerR}" ry="${innerR}" fill="${lumFill}"/>`;
+
+  const particleCount = Math.round(s.flow / 5.0 * 22);
+  for (let i=0; i<particleCount; i++) {
+    const a = (i/particleCount)*2*Math.PI;
+    const r2 = (innerR-4) * Math.sqrt(Math.random());
+    const px = cx + r2*Math.cos(a + Math.random()*0.5);
+    const py = cy + r2*Math.sin(a + Math.random()*0.5);
+    const sz = 1.5 + Math.random()*2;
+    const op = 0.4 + Math.random()*0.5;
+    content += `<circle cx="${px}" cy="${py}" r="${sz}" fill="#e05555" opacity="${op}"/>`;
+  }
+
+  content += `<ellipse cx="${cx}" cy="${cy}" rx="${innerR}" ry="${innerR}" fill="none" stroke="#e05555" stroke-width="0.5" opacity="0.3"/>`;
+
+  const lDiam = ((innerR/38)*3.8).toFixed(1);
+  content += `<line x1="${cx - innerR - 10}" y1="${cy}" x2="${cx + innerR + 10}" y2="${cy}" stroke="#30363d" stroke-width="0.5" stroke-dasharray="3 3"/>`;
+  content += `<text x="${cx + innerR + 14}" y="${cy+4}" font-size="10" fill="#484f58" font-family="monospace">${lDiam}mm</text>`;
+  content += `<text x="16" y="20" font-size="10" fill="#484f58" font-family="monospace">LAD cross-section</text>`;
+
+  svg.innerHTML = content;
+}
+
+const ecgCanvas = document.getElementById('ecg');
+const ecgCtx = ecgCanvas.getContext('2d');
+let ecgData = new Array(134).fill(0.5);
+let ecgRate = 72;
+let ecgPhase = 0;
+
+function ecgWaveform(t) {
+  const mod = t % 1;
+  if (mod < 0.05) return 0.5 + 0.05*Math.sin(mod/0.05*Math.PI);
+  if (mod < 0.08) return 0.5 - 0.08*Math.sin((mod-0.05)/0.03*Math.PI);
+  if (mod < 0.11) return 0.5 + 0.8*Math.sin((mod-0.08)/0.03*Math.PI);
+  if (mod < 0.14) return 0.5 - 0.2*Math.sin((mod-0.11)/0.03*Math.PI);
+  if (mod < 0.25) return 0.5 + 0.15*Math.sin((mod-0.14)/0.11*Math.PI);
+  return 0.5;
+}
+
+function drawECG() {
+  const w = ecgCanvas.width, h = ecgCanvas.height;
+  ecgCtx.clearRect(0,0,w,h);
+  ecgCtx.fillStyle='#0d1117'; ecgCtx.fillRect(0,0,w,h);
+  ecgCtx.strokeStyle='#3fb95044'; ecgCtx.lineWidth=0.5;
+  for (let gx=0;gx<w;gx+=13){ecgCtx.beginPath();ecgCtx.moveTo(gx,0);ecgCtx.lineTo(gx,h);ecgCtx.stroke();}
+  for (let gy=0;gy<h;gy+=12){ecgCtx.beginPath();ecgCtx.moveTo(0,gy);ecgCtx.lineTo(w,gy);ecgCtx.stroke();}
+  const speed = ecgRate/60 * 1.2;
+  ecgPhase += speed * 0.016;
+  ecgData.shift();
+  ecgData.push(ecgWaveform(ecgPhase));
+  ecgCtx.beginPath(); ecgCtx.strokeStyle='#3fb950'; ecgCtx.lineWidth=1.5;
+  ecgData.forEach((v,i) => {
+    const x=i*2, y=h - v*h*0.85 - h*0.07;
+    i===0?ecgCtx.moveTo(x,y):ecgCtx.lineTo(x,y);
+  });
+  ecgCtx.stroke();
+}
+
+setInterval(drawECG, 16);
+applyStage(0);
+</script>

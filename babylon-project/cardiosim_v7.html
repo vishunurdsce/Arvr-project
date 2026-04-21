@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CardioSim v5 — Surgical Simulation Platform</title>
+<script src="https://unpkg.com/babylonjs@6.44.0/babylon.js"></script>
+<script src="https://unpkg.com/babylonjs-loaders@6.44.0/babylonjs.loaders.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06080e;
+  --panel:#0a0d16;
+  --panel2:#0e1220;
+  --border:#161d2e;
+  --border2:#1e2a42;
+  --red:#e84040;
+  --red2:#ff5a5a;
+  --red3:#ff2222;
+  --green:#2ecc71;
+  --green2:#52e892;
+  --blue:#3b9eff;
+  --blue2:#6dbfff;
+  --yellow:#f0a500;
+  --yellow2:#ffc030;
+  --purple:#a855f7;
+  --cyan:#06b6d4;
+  --orange:#f97316;
+  --text:#e2eaf8;
+  --muted:#3a4a68;
+  --muted2:#6b7fa8;
+  --card:#08101c;
+  --glow-red:rgba(232,64,64,.18);
+  --glow-green:rgba(46,204,113,.15);
+  --glow-blue:rgba(59,158,255,.15);
+}
+
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
+body{font-family:'Syne',sans-serif}
+
+/* ─── SCANLINE texture overlay ─── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);
+}
+
+/* ─── GRID LINES background ─── */
+body::after{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(59,158,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(59,158,255,.03) 1px,transparent 1px);
+  background-size:48px 48px;
+}
+
+.shell{display:grid;grid-template-columns:300px 1fr 280px;height:100vh;position:relative;z-index:1}
+
+/* ═══════════════════════════════════
+   LEFT SIDEBAR
+═══════════════════════════════════ */
+.sidebar{
+  background:linear-gradient(180deg,var(--panel) 0%,rgba(6,8,14,.98) 100%);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:inset -1px 0 0 rgba(59,158,255,.06);
+}
+
+/* Header */
+.sb-header{
+  padding:16px 16px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;flex-shrink:0;
+  background:linear-gradient(135deg,rgba(232,64,64,.06),transparent);
+}
+.heart-logo{position:relative;width:28px;height:28px;flex-shrink:0}
+.heart-logo svg{width:28px;height:28px;overflow:visible}
+.heart-path{fill:none;stroke:var(--red2);stroke-width:1.8;stroke-linejoin:round;
+  filter:drop-shadow(0 0 6px var(--red));animation:logopulse 1.1s ease-in-out infinite}
+@keyframes logopulse{
+  0%,100%{stroke:var(--red2);filter:drop-shadow(0 0 5px var(--red))}
+  40%{stroke:#ff8080;filter:drop-shadow(0 0 12px var(--red2))}
+}
+.sb-brand{flex:1}
+.sb-title{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;
+  color:var(--text);letter-spacing:.08em;line-height:1}
+.sb-sub{font-size:10px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:2px;letter-spacing:.06em}
+.ver-badge{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);
+  background:rgba(59,158,255,.1);border:1px solid rgba(59,158,255,.25);
+  padding:3px 8px;border-radius:4px;letter-spacing:.04em}
+
+/* Disease tabs */
+.dis-bar{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.dis-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.14em;margin-bottom:7px}
+.dis-tabs{display:flex;flex-wrap:wrap;gap:4px}
+.dtab{
+  padding:4px 9px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--muted2);font-size:10px;cursor:pointer;
+  font-family:'JetBrains Mono',monospace;transition:all .15s;letter-spacing:.02em;
+}
+.dtab:hover{border-color:var(--border2);color:var(--text);background:var(--panel2)}
+.dtab.active{background:rgba(59,158,255,.12);border-color:rgba(59,158,255,.4);color:var(--blue2)}
+
+/* Vitals */
+.vitals{padding:10px 14px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0}
+.vcard{
+  background:var(--card);border-radius:6px;padding:8px 10px;
+  border:1px solid var(--border);position:relative;overflow:hidden;transition:border-color .3s;
+}
+.vcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;border-radius:0 0 6px 6px;transition:background .3s}
+.vcard.vc-green::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.vcard.vc-red::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.vcard.vc-yellow::after{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.vcard.vc-blue::after{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
+.vcard.vc-cyan::after{background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+.vcard.vc-purple::after{background:linear-gradient(90deg,transparent,var(--purple),transparent)}
+.vcard.vc-green{border-color:rgba(46,204,113,.2)}
+.vcard.vc-red{border-color:rgba(232,64,64,.3);background:rgba(20,8,8,.8)}
+.vcard.vc-blue{border-color:rgba(59,158,255,.2)}
+.v-lbl{font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--muted2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+.v-val{font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;line-height:1;transition:color .35s}
+.v-unit{font-size:8.5px;color:var(--muted2);margin-top:2px;font-family:'JetBrains Mono',monospace}
+.vg{color:var(--green)}.vy{color:var(--yellow)}.vr{color:var(--red)}.vb{color:var(--blue)}.vc{color:var(--cyan)}.vp{color:var(--purple)}
+
+/* ECG */
+.ecg-wrap{padding:9px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ecg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.ecg-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.12em}
+.ecg-badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:3px;
+  border:1px solid var(--border);background:var(--card);color:var(--muted2);transition:all .3s}
+#ecgCanvas{width:100%;height:52px;display:block;border-radius:4px}
+
+/* Stages */
+.stages-wrap{padding:10px 14px;overflow-y:auto;flex:1;min-height:0;border-bottom:1px solid var(--border)}
+.sec-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.14em;margin-bottom:7px}
+.stg-btn{
+  width:100%;text-align:left;padding:7px 10px;margin-bottom:3px;border-radius:5px;
+  border:1px solid transparent;background:transparent;color:var(--muted2);font-size:11px;
+  cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s;
+  font-family:'Syne',sans-serif;
+}
+.stg-btn:hover{background:var(--panel2);color:var(--text);border-color:var(--border)}
+.stg-btn.active{background:rgba(59,158,255,.08);border-color:rgba(59,158,255,.35);color:var(--blue2)}
+.stg-btn.done{color:var(--green);border-color:rgba(46,204,113,.15)}
+.stg-btn.done:hover{background:rgba(46,204,113,.05)}
+.stg-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+.stg-btn.active .stg-dot{background:var(--blue);box-shadow:0 0 6px var(--blue)}
+.stg-btn.done .stg-dot{background:var(--green);box-shadow:0 0 4px var(--green)}
+.stg-badge{font-size:9px;padding:1px 6px;border-radius:8px;background:var(--card);
+  color:var(--muted2);margin-left:auto;font-family:'JetBrains Mono',monospace;
+  border:1px solid var(--border);white-space:nowrap}
+.stg-btn.active .stg-badge{background:rgba(59,158,255,.15);color:var(--blue2);border-color:rgba(59,158,255,.3)}
+.stg-btn.done .stg-badge{background:rgba(46,204,113,.1);color:var(--green);border-color:rgba(46,204,113,.25)}
+
+/* Risk */
+.risk-wrap{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.risk-track{height:4px;background:var(--card);border-radius:2px;overflow:hidden;margin:6px 0 5px}
+.risk-fill{height:100%;border-radius:2px;transition:width .7s cubic-bezier(.4,0,.2,1),background .5s}
+.risk-row{display:flex;justify-content:space-between;align-items:center}
+.risk-num{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;transition:color .4s}
+.risk-tag{font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 9px;border-radius:10px;border:1px solid;font-weight:500}
+
+/* Pacemaker */
+.pacer{display:none;margin:0 14px 6px;padding:8px 11px;border-radius:5px;
+  background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);
+  align-items:center;gap:9px;flex-shrink:0}
+.pacer.show{display:flex}
+.pacer-dot{width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;
+  animation:pacepulse .9s ease-in-out infinite;box-shadow:0 0 8px var(--purple)}
+@keyframes pacepulse{0%,100%{opacity:1}50%{opacity:.2}}
+.pacer-txt{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)}
+
+/* Alert */
+.alert-bar{display:none;margin:0 14px 5px;padding:7px 10px;border-radius:5px;
+  align-items:center;gap:7px;font-size:11px;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.alert-bar.show{display:flex}
+.ac{background:rgba(232,64,64,.1);border:1px solid rgba(232,64,64,.35);color:var(--red2)}
+.aw{background:rgba(240,165,0,.08);border:1px solid rgba(240,165,0,.3);color:var(--yellow2)}
+.ai{background:rgba(59,158,255,.08);border:1px solid rgba(59,158,255,.25);color:var(--blue2)}
+.alert-icon{font-size:13px;flex-shrink:0}
+
+/* Footer */
+.sb-footer{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:7px;flex-shrink:0}
+.btn-p{
+  flex:1;padding:9px;border-radius:5px;
+  background:linear-gradient(135deg,rgba(59,158,255,.2),rgba(59,158,255,.1));
+  border:1px solid rgba(59,158,255,.35);color:var(--blue2);
+  font-size:11px;font-weight:600;cursor:pointer;font-family:'Syne',sans-serif;
+  transition:all .15s;letter-spacing:.03em;
+}
+.btn-p:hover{background:linear-gradient(135deg,rgba(59,158,255,.3),rgba(59,158,255,.18));border-color:var(--blue)}
+.btn-s{padding:9px 13px;border-radius:5px;background:transparent;border:1px solid var(--border);
+  color:var(--muted2);font-size:11px;cursor:pointer;font-family:'Syne',sans-serif;transition:all .15s}
+.btn-s:hover{background:var(--panel2);color:var(--text);border-color:var(--border2)}
+
+/* ═══════════════════════════════════
+   CENTER VIEWPORT
+═══════════════════════════════════ */
+.viewport{background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden}
+
+/* Top bar */
+.vp-bar{
+  position:absolute;top:0;left:0;right:0;z-index:20;
+  padding:11px 16px;display:flex;align-items:center;gap:10px;
+  background:linear-gradient(180deg,rgba(6,8,14,.95) 0%,transparent 100%);
+  border-bottom:1px solid rgba(22,29,46,.6);
+}
+.vp-title{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.12em;flex:1}
+.view-btns{display:flex;background:var(--card);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.vbtn{padding:5px 12px;border:none;background:transparent;color:var(--muted2);
+  font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;
+  transition:all .15s;letter-spacing:.04em}
+.vbtn+.vbtn{border-left:1px solid var(--border)}
+.vbtn:hover{color:var(--text)}
+.vbtn.active{background:rgba(59,158,255,.15);color:var(--blue2)}
+.live-pill{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;
+  font-size:9px;color:var(--green);padding:4px 9px;border-radius:10px;
+  background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.25)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:ldot 1.2s step-end infinite}
+@keyframes ldot{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Babylon canvas */
+#renderCanvas{width:100%;height:100%;display:block;touch-action:none;outline:none}
+
+/* Loading */
+.loader{
+  position:absolute;inset:0;z-index:15;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  background:var(--bg);transition:opacity .6s;
+}
+.loader.gone{opacity:0;pointer-events:none}
+.loader-ring{width:44px;height:44px;border-radius:50%;
+  border:2px solid var(--border2);border-top-color:var(--red);
+  animation:spin .75s linear infinite;box-shadow:0 0 12px var(--glow-red)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-txt{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2);letter-spacing:.08em}
+.loader-sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.06em}
+
+/* Bottom HUD */
+.hud{
+  position:absolute;bottom:0;left:0;right:0;z-index:10;
+  padding:10px 16px 12px;
+  background:linear-gradient(0deg,rgba(6,8,14,.96) 60%,transparent 100%);
+}
+.hud-chips{display:flex;gap:7px;flex-wrap:wrap}
+.hchip{
+  background:rgba(10,16,28,.9);border:1px solid var(--border);border-radius:5px;
+  padding:5px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2);
+  backdrop-filter:blur(4px);transition:border-color .3s;
+}
+.hchip span{font-weight:600}
+.hchip.ok span{color:var(--green)}
+.hchip.warn span{color:var(--yellow)}
+.hchip.crit span{color:var(--red2)}
+
+/* Anatomy labels */
+.ana-lbl{
+  position:absolute;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);
+  background:rgba(6,8,14,.85);border:1px solid var(--border);padding:3px 8px;border-radius:3px;
+  pointer-events:none;opacity:0;transition:opacity .4s;letter-spacing:.06em;
+  backdrop-filter:blur(6px);white-space:nowrap;
+}
+.ana-lbl.show{opacity:1}
+
+/* ═══════════════════════════════════
+   RIGHT PANEL
+═══════════════════════════════════ */
+.rpanel{
+  background:linear-gradient(180deg,var(--panel) 0%,rgba(6,8,14,.98) 100%);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:inset 1px 0 0 rgba(59,158,255,.04);
+}
+.rp-head{padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.rp-sup{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.14em;margin-bottom:5px}
+.rp-module{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:var(--text)}
+
+/* Controls */
+.ctrl-sect{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ctrl-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.12em;margin-bottom:7px}
+.ctrl-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
+.cbtn{
+  padding:7px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;
+  color:var(--muted2);font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;
+  transition:all .15s;text-align:center;letter-spacing:.02em;
+}
+.cbtn:hover{background:var(--panel2);color:var(--text);border-color:var(--border2)}
+.cbtn.on{background:rgba(46,204,113,.08);border-color:rgba(46,204,113,.3);color:var(--green)}
+.cbtn.on-red{background:rgba(232,64,64,.08);border-color:rgba(232,64,64,.3);color:var(--red2)}
+.cbtn.on-blue{background:rgba(59,158,255,.08);border-color:rgba(59,158,255,.3);color:var(--blue2)}
+
+/* HR slider */
+.hr-sect{padding:9px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.hr-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+.slider{
+  flex:1;-webkit-appearance:none;height:3px;border-radius:2px;
+  background:linear-gradient(90deg,var(--blue) calc(var(--pct,42%)),var(--border) calc(var(--pct,42%)));
+  outline:none;cursor:pointer;
+}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--blue);border:2px solid var(--bg);box-shadow:0 0 8px var(--blue);cursor:pointer}
+.hr-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--blue2);width:42px;text-align:right}
+
+/* Notes */
+.notes-sect{padding:12px 14px;flex:1;overflow-y:auto;min-height:0}
+.notes-body{font-size:12px;color:var(--muted2);line-height:1.8;font-family:'Syne',sans-serif}
+.notes-body b{color:var(--text);font-weight:600}
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:9px;
+  padding:1px 7px;border-radius:8px;margin:1px 2px;vertical-align:middle;border:1px solid}
+.pr{background:rgba(232,64,64,.1);color:var(--red2);border-color:rgba(232,64,64,.3)}
+.pg{background:rgba(46,204,113,.08);color:var(--green2);border-color:rgba(46,204,113,.25)}
+.pb{background:rgba(59,158,255,.08);color:var(--blue2);border-color:rgba(59,158,255,.25)}
+.py{background:rgba(240,165,0,.08);color:var(--yellow2);border-color:rgba(240,165,0,.25)}
+.pp{background:rgba(168,85,247,.08);color:#d8aaff;border-color:rgba(168,85,247,.25)}
+.pc{background:rgba(6,182,212,.08);color:var(--cyan);border-color:rgba(6,182,212,.25)}
+.po{background:rgba(249,115,22,.08);color:var(--orange);border-color:rgba(249,115,22,.25)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ══════ LEFT SIDEBAR ══════ -->
+<div class="sidebar">
+  <div class="sb-header">
+    <div class="heart-logo">
+      <svg viewBox="0 0 28 28"><path class="heart-path" d="M14 23 C14 23 3 15 3 9 C3 5.8 5.5 3 9 3 C11.2 3 13 4.5 14 6.2 C15 4.5 16.8 3 19 3 C22.5 3 25 5.8 25 9 C25 15 14 23 14 23Z"/></svg>
+    </div>
+    <div class="sb-brand">
+      <div class="sb-title">CARDIOSIM</div>
+      <div class="sb-sub">CARDIAC SIMULATION PLATFORM</div>
+    </div>
+    <div class="ver-badge">v4.0</div>
+  </div>
+
+  <div class="dis-bar">
+    <div class="dis-lbl">Disease Module</div>
+    <div class="dis-tabs" id="disTabs"></div>
+  </div>
+
+  <div class="vitals">
+    <div class="vcard vc-green" id="vc-hr">
+      <div class="v-lbl">Heart Rate</div>
+      <div class="v-val vg" id="vHR">72</div>
+      <div class="v-unit">bpm</div>
+    </div>
+    <div class="vcard vc-blue" id="vc-bp">
+      <div class="v-lbl">BP (Sys)</div>
+      <div class="v-val vb" id="vBP">120</div>
+      <div class="v-unit">mmHg</div>
+    </div>
+    <div class="vcard vc-green" id="vc-spo2">
+      <div class="v-lbl">SpO₂</div>
+      <div class="v-val vg" id="vSPO2">98</div>
+      <div class="v-unit">%</div>
+    </div>
+    <div class="vcard vc-cyan" id="vc-ef">
+      <div class="v-lbl">EF</div>
+      <div class="v-val vc" id="vEF">65</div>
+      <div class="v-unit">%</div>
+    </div>
+  </div>
+
+  <div class="ecg-wrap">
+    <div class="ecg-head">
+      <span class="ecg-lbl">ECG — Lead II</span>
+      <span class="ecg-badge" id="ecgBadge">NSR</span>
+    </div>
+    <canvas id="ecgCanvas" width="272" height="52"></canvas>
+  </div>
+
+  <div class="stages-wrap">
+    <div class="sec-lbl">Procedure Stages</div>
+    <div id="stageList"></div>
+  </div>
+
+  <div class="risk-wrap">
+    <div class="sec-lbl">Risk Score</div>
+    <div class="risk-track"><div class="risk-fill" id="riskBar" style="width:5%"></div></div>
+    <div class="risk-row">
+      <div class="risk-num vg" id="riskNum">Low</div>
+      <div class="risk-tag" id="riskTag">Stable</div>
+    </div>
+  </div>
+
+  <div class="pacer" id="pacerWidget">
+    <div class="pacer-dot"></div>
+    <div class="pacer-txt">⚡ Pacemaker — <span id="pacerRate">70</span> ppm</div>
+  </div>
+
+  <div class="alert-bar" id="alertBar">
+    <span class="alert-icon">⚠</span>
+    <span id="alertTxt"></span>
+  </div>
+
+  <div class="sb-footer">
+    <button class="btn-s" onclick="prevStep()">← Back</button>
+    <button class="btn-p" onclick="nextStep()">Advance Stage →</button>
+  </div>
+</div>
+
+<!-- ══════ VIEWPORT ══════ -->
+<div class="viewport">
+  <div class="vp-bar">
+    <div class="vp-title" id="vpTitle">3D Cardiac Simulation</div>
+    <div class="view-btns">
+      <button class="vbtn active" id="vbBeat" onclick="setView('beat')">❤ Beating</button>
+      <button class="vbtn" id="vbAnat" onclick="setView('anatomy')">🫀 Anatomy</button>
+    </div>
+    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+  </div>
+
+  <canvas id="renderCanvas"></canvas>
+
+  <!-- Anatomy labels -->
+  <div class="ana-lbl" id="aLA"  style="top:20%;left:28%">Left Atrium</div>
+  <div class="ana-lbl" id="aRA"  style="top:20%;right:26%">Right Atrium</div>
+  <div class="ana-lbl" id="aLV"  style="top:62%;left:22%">Left Ventricle</div>
+  <div class="ana-lbl" id="aRV"  style="top:62%;right:20%">Right Ventricle</div>
+  <div class="ana-lbl" id="aAO"  style="top:8%;left:42%">Aorta</div>
+  <div class="ana-lbl" id="aPA"  style="top:15%;right:28%">Pulm. Artery</div>
+
+  <div class="loader" id="loader">
+    <div class="loader-ring"></div>
+    <div class="loader-txt" id="loaderTxt">Initialising Babylon.js engine…</div>
+    <div class="loader-sub">Loading models/beating-heart.glb</div>
+  </div>
+
+  <div class="hud">
+    <div class="hud-chips">
+      <div class="hchip ok" id="hcLumen">Lumen <span id="hdLumen">3.8mm</span></div>
+      <div class="hchip" id="hcPat">Patency <span id="hdPat">100%</span></div>
+      <div class="hchip" id="hcSten">Stenosis <span id="hdSten">0%</span></div>
+      <div class="hchip ok" id="hcFlow">Flow <span id="hdFlow">5.0 L/min</span></div>
+      <div class="hchip" id="hcRhythm">Rhythm <span id="hdRhythm">Regular</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ RIGHT PANEL ══════ -->
+<div class="rpanel">
+  <div class="rp-head">
+    <div class="rp-sup">Active Module</div>
+    <div class="rp-module" id="rpModule">Coronary Artery Disease</div>
+  </div>
+
+  <div class="ctrl-sect">
+    <div class="ctrl-lbl">Simulation Controls</div>
+    <div class="ctrl-grid">
+      <button class="cbtn on" id="cBeat" onclick="toggleBeat()">❤ Beat ON</button>
+      <button class="cbtn" id="cRotate" onclick="toggleRotate()">↻ Rotate</button>
+      <button class="cbtn" id="cWire" onclick="toggleWire()">⬡ Wireframe</button>
+      <button class="cbtn" id="cXray" onclick="toggleXray()">◎ X-Ray</button>
+    </div>
+    <button class="cbtn" style="width:100%" id="cGlow" onclick="toggleGlow()">✦ Pulse Glow</button>
+  </div>
+
+  <div class="hr-sect">
+    <div class="ctrl-lbl">HR Override — <span id="hrDisplay" style="color:var(--blue2);font-family:'JetBrains Mono',monospace">72</span> bpm</div>
+    <div class="hr-row">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted)">30</span>
+      <input type="range" class="slider" id="hrSlider" min="30" max="200" value="72" style="--pct:24%" oninput="hrOverride(this.value)">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted)">200</span>
+    </div>
+  </div>
+
+  <div style="padding:12px 14px 0">
+    <div class="sec-lbl" style="margin-bottom:9px">Vessel Cross-Section</div>
+    <svg id="vesselSvg" viewBox="0 0 110 96" width="100%" style="border-radius:6px;background:#06080e;display:block;max-height:110px"></svg>
+  </div>
+
+  <div class="notes-sect">
+    <div class="sec-lbl" style="margin-bottom:9px">Clinical Notes</div>
+    <div class="notes-body" id="notesBody">Select a disease module and stage.</div>
+  </div>
+</div>
+
+</div><!-- .shell -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DISEASE DATA
+// ═══════════════════════════════════════════════════════════
+const DISEASES = {
+  pci:{name:"PCI — Coronary Intervention",ecg:"normal",stages:[
+    {id:1,lbl:"Diagnostic Angiogram",badge:"Cath Lab",hr:74,bp:128,spo2:97,ef:62,flow:4.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:12,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Diagnostic",
+     alert:{c:"ai",t:"6Fr radial sheath — Judkins catheter at coronary ostium — contrast injecting"},pacer:false,stent:false,balloon:false,proc:'angio',
+     info:"<b>Diagnostic coronary angiography.</b> Right radial 6Fr sheath. JL4 guide catheter seated at LM ostium. Iodinated contrast injected — coronary tree visualised under fluoroscopy. LAD/LCx/RCA anatomy mapped. FFR wire on standby. <span class='pill pb'>Angio</span>"},
+    {id:2,lbl:"LAD Stenosis — FFR",badge:"FFR 0.74",hr:82,bp:138,spo2:96,ef:56,flow:3.2,pat:65,sten:70,lumen:"1.1mm",rhythm:"Regular",
+     risk:48,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"PCI Decision",
+     alert:{c:"aw",t:"Mid-LAD 70% stenosis — FFR 0.74 ischaemic — PCI indicated"},pacer:false,proc:'stenosis',
+     info:"<b>Significant LAD stenosis — FFR-guided PCI.</b> Mid-LAD 70% stenosis. FFR pressure wire: ratio 0.74 (ischaemic &lt;0.80). Fractional flow reserve confirms haemodynamic significance. PCI consent. 0.014″ BMW guidewire loaded onto catheter. <span class='pill py'>FFR+</span>"},
+    {id:3,lbl:"Guidewire Crossing",badge:"Wire",hr:84,bp:136,spo2:96,ef:56,flow:3.0,pat:62,sten:70,lumen:"1.1mm",rhythm:"Regular",
+     risk:42,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Wire Across",
+     alert:{c:"ai",t:"0.014 guidewire navigating through stenosis — tip in distal LAD"},pacer:false,proc:'wire',
+     info:"<b>0.014″ floppy guidewire crosses stenosis.</b> Wire tip navigates through 70% lesion under live fluoro. Wire enters distal LAD — confirmed by contrast puff. 2.5×15 mm balloon catheter advanced over wire to lesion site. Anticoagulation confirmed (ACT &gt;250 s). <span class='pill pb'>Wire Across</span>"},
+    {id:4,lbl:"Balloon Pre-Dilatation",badge:"PTCA",hr:90,bp:108,spo2:95,ef:50,flow:2.2,pat:55,sten:40,lumen:"2.0mm",rhythm:"Brady",
+     risk:38,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Balloon Inflating",
+     alert:{c:"aw",t:"Balloon inflated 8 atm × 20 s — vessel occluded — ischaemia transient"},pacer:false,balloon:true,proc:'balloon',
+     info:"<b>PTCA balloon pre-dilatation — 2.5×15 mm at 8 atm × 20 s.</b> Balloon inflation occludes LAD. Transient ST elevation, chest tightness, bradycardia expected (Bezold-Jarisch). Plaque cracked and compressed. Balloon deflated — vessel reperfuses. Stent to follow. <span class='pill po'>Balloon Active</span>"},
+    {id:5,lbl:"DES Stent Deployment",badge:"DES",hr:78,bp:124,spo2:97,ef:58,flow:4.5,pat:92,sten:7,lumen:"3.5mm",rhythm:"Regular",
+     risk:16,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stented",
+     alert:null,pacer:false,stent:true,proc:'stent',
+     info:"<b>3.5×28 mm Xience DES deployed at 14 atm × 15 s.</b> Stent scaffold fully expanded at lesion site. Post-dilatation: 3.75 mm NC balloon at 20 atm for full apposition. OCT: no edge dissection, full stent apposition confirmed. FFR post-stent 0.94. TIMI-3 flow. <span class='pill pg'>DES Deployed</span>"},
+    {id:6,lbl:"Final Angiogram + Closure",badge:"Done",hr:70,bp:118,spo2:99,ef:63,flow:5.0,pat:100,sten:0,lumen:"3.6mm",rhythm:"Regular",
+     risk:8,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Success",
+     alert:null,pacer:false,stent:true,proc:'closure',
+     info:"<b>Excellent result — procedure complete.</b> Final angiogram: TIMI-3 flow, no dissection, no perforation, no slow-flow. Guidewire and catheters removed. Radial TR-band haemostasis. DAPT: aspirin 100 mg + ticagrelor 90 mg BD × 12 months. Discharge tomorrow. <span class='pill pg'>Complete</span>"},
+  ]},
+
+  stemi:{name:"STEMI — Primary PCI",ecg:"stemi",stages:[
+    {id:1,lbl:"STEMI Arrival — T=0",badge:"T=0",hr:104,bp:158,spo2:92,ef:50,flow:2.8,pat:74,sten:26,lumen:"2.8mm",rhythm:"Sinus Tach",
+     risk:82,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"STEMI",
+     alert:{c:"ac",t:"STEMI — Cath Lab ACTIVATED — Door-to-Balloon TARGET <90 min"},pacer:false,proc:'stemi_arrival',
+     info:"<b>Anterior STEMI — T=0 clock started.</b> ST elevation V1–V4, reciprocal changes II/III/aVF. Aspirin 300 mg + ticagrelor 180 mg + heparin 70 U/kg IV. 12-lead transmitted to Cath Lab. Patient wheeled directly to Cath Lab bypassing ED workup. <span class='pill pr'>T=0</span>"},
+    {id:2,lbl:"Radial Access + Engagement",badge:"T+18min",hr:110,bp:140,spo2:91,ef:46,flow:2.0,pat:45,sten:55,lumen:"1.7mm",rhythm:"Sinus Tach",
+     risk:88,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Access",
+     alert:{c:"ac",t:"Right radial 6Fr — JL4 at LM ostium — LAD total occlusion confirmed"},pacer:false,proc:'stemi_access',
+     info:"<b>T+18 min — emergent radial access.</b> Right radial puncture, 6Fr sheath, JL4 guide at left main. First contrast injection confirms proximal LAD total occlusion — TIMI-0 flow. Bivalirudin 0.75 mg/kg bolus. Guidewire loading begins immediately. Every second counts. <span class='pill pr'>T+18m</span>"},
+    {id:3,lbl:"Total LAD Occlusion",badge:"TIMI 0",hr:116,bp:96,spo2:89,ef:34,flow:1.0,pat:8,sten:96,lumen:"0.2mm",rhythm:"PVCs",
+     risk:95,rLbl:"Imminent",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Total Occ.",
+     alert:{c:"ac",t:"Total LAD occlusion — anterior WMA — VF defib on standby"},pacer:false,proc:'stemi_wire',
+     info:"<b>Total LAD occlusion — TIMI grade 0.</b> Thrombus-rich red occlusion. LV anterior wall akinetic on echo — jeopardised territory &gt;35% LV mass. Troponin rising. VF risk high — defib pads on, charged. 0.014″ wire advancing through occlusion now. <span class='pill pr'>TIMI 0</span>"},
+    {id:4,lbl:"Thrombus Aspiration",badge:"Aspiration",hr:98,bp:106,spo2:93,ef:40,flow:2.2,pat:35,sten:65,lumen:"1.3mm",rhythm:"PVCs",
+     risk:80,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Reperfusing",
+     alert:{c:"ac",t:"Aspiration catheter — thrombus retrieved — reperfusion arrhythmias — Mg 2g IV"},pacer:false,proc:'aspiration',
+     info:"<b>Manual thrombus aspiration × 3 passes.</b> Large red thrombus retrieved — sent for pathology. TIMI 0→2 flow achieved. ST elevation beginning to resolve. Reperfusion PVCs/AIVR expected — lidocaine and Mg 2g IV. Balloon pre-dilatation next for residual lesion. <span class='pill po'>Aspirating</span>"},
+    {id:5,lbl:"Primary DES Deployment",badge:"D2B 56m",hr:86,bp:116,spo2:96,ef:44,flow:3.8,pat:88,sten:10,lumen:"3.3mm",rhythm:"Regular",
+     risk:40,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Stented",
+     alert:{c:"aw",t:"DES deployed — D2B 56 min — TIMI-3 restored — excellent result"},pacer:false,stent:true,proc:'stemi_stent',
+     info:"<b>D2B 56 minutes — primary PCI complete.</b> 3.5×33 mm DES deployed at 14 atm. TIMI-3 flow restored. ST elevation resolved 65%. IABP standby removed — haemodynamics stable. Troponin I will peak 14,000–20,000 U/L at 24h (marker of infarct size). <span class='pill py'>D2B 56m</span>"},
+    {id:6,lbl:"CCU — Day 1",badge:"CCU D1",hr:74,bp:112,spo2:98,ef:42,flow:4.2,pat:96,sten:4,lumen:"3.5mm",rhythm:"Regular",
+     risk:28,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"CCU",
+     alert:{c:"ai",t:"Troponin peak 16,400 — anterior WMA — EF 42% — ACEi + BB started"},pacer:false,stent:true,proc:'idle',
+     info:"<b>CCU Day 1 — haemodynamics stable.</b> EF 42% (down from 62%) — anterior stunning. ACEi + beta-blocker + high-dose statin + eplerenone started. Anterior WMA expected to improve 4–6 weeks (hibernating myocardium). ICD deferred — reassess EF at day 40. <span class='pill py'>CCU D1</span>"},
+  ]},
+
+  ablation:{name:"AF Ablation — PVI",ecg:"afib",stages:[
+    {id:1,lbl:"Pre-Ablation — TOE + CT",badge:"Prep",hr:122,bp:142,spo2:94,ef:54,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Irreg. Irreg.",
+     risk:40,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Parox. AF",
+     alert:{c:"aw",t:"TOE: no LAA thrombus — CT: 4 PVs mapped — PVI scheduled"},pacer:false,proc:'af_prep',
+     info:"<b>Pre-ablation workup complete.</b> TOE: no LAA thrombus — safe to proceed without 4-week anticoagulation wait. CT-angiogram: 4 pulmonary veins — LSPV, LIPV, RSPV, RIPV — no anomalous anatomy. DOAC held 24h. Irrigated-tip RF catheter selected. <span class='pill py'>Ready</span>"},
+    {id:2,lbl:"Transseptal Puncture",badge:"TSP",hr:118,bp:138,spo2:95,ef:55,flow:3.9,pat:100,sten:0,lumen:"3.8mm",rhythm:"Irreg.",
+     risk:32,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"LA Access",
+     alert:{c:"ai",t:"Brockenbrough needle at fossa ovalis — tenting confirmed — ICE guided"},pacer:false,proc:'transseptal',
+     info:"<b>Transseptal puncture — left atrial access.</b> 8.5Fr SL1 sheath advanced to RA. Brockenbrough needle tents fossa ovalis under ICE visualisation. Pressure waveform confirms LA access (non-wedged, higher mean pressure). Heparin bolus — ACT target &gt;300 s. <span class='pill pb'>LA Access</span>"},
+    {id:3,lbl:"3D Electroanatomic Mapping",badge:"CARTO",hr:115,bp:134,spo2:95,ef:54,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Irreg.",
+     risk:28,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Mapping",
+     alert:{c:"ai",t:"CARTO 3 electroanatomic map — LA geometry — 4 PV ostia tagged"},pacer:false,proc:'mapping',
+     info:"<b>3D electroanatomic map — CARTO 3 system.</b> LA geometry reconstructed. 4 PV ostia identified and tagged. Local activation times displayed. CFAE regions marked at posterior wall. Ablation index targets programmed: 400 anterior wall / 350 posterior wall / 300 roof. <span class='pill pb'>Mapping</span>"},
+    {id:4,lbl:"Left PV Isolation — RF Lesions",badge:"L-PVI",hr:108,bp:130,spo2:96,ef:55,flow:4.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Irreg.",
+     risk:22,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"L-PVI",
+     alert:{c:"ai",t:"RF lesions encircling LSPV+LIPV antrum — AI target 400 ant / 350 post"},pacer:false,proc:'ablation_left',
+     info:"<b>Left PV isolation — RF energy delivery.</b> 40W anterior wall, 35W posterior wall (oesophageal proximity). Continuous lesion set encircling LSPV+LIPV common antrum. 28 lesion points. Exit block confirmed — PV potentials absent post-ablation. Steam pop risk managed. <span class='pill pc'>L-PVI Done</span>"},
+    {id:5,lbl:"Right PV Isolation — SR Restored",badge:"R-PVI",hr:68,bp:118,spo2:97,ef:58,flow:4.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:18,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"R-PVI",
+     alert:{c:"ai",t:"Sinus rhythm restored during R-PVI — bidirectional block confirmed"},pacer:false,ecgOvr:"Normal",proc:'ablation_right',
+     info:"<b>Right PV isolation — SR spontaneously restored.</b> SR converted during ablation of RSPV. Bidirectional block confirmed: entry block (no PV potentials in SR) and exit block (pacing from inside PV — no capture outside). All 4 PVs isolated. <span class='pill pg'>R-PVI Done</span>"},
+    {id:6,lbl:"PVI Complete — Waiting Period",badge:"Done",hr:64,bp:114,spo2:99,ef:62,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:10,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"PVI Done",
+     alert:null,pacer:false,ecgOvr:"Normal",proc:'ablation_done',
+     info:"<b>PVI complete — 60–70% long-term AF freedom.</b> All 4 PVs isolated. RF time 38 min. No complications (no tamponade, no PV stenosis, no phrenic palsy). Sheaths removed — femoral venous compression. DOAC resumed 4h post-procedure. 3-month blanking period begins. <span class='pill pg'>PVI Done</span>"},
+  ]},
+
+  cabg:{name:"CABG — Bypass Surgery",ecg:"lbbb",stages:[
+    {id:1,lbl:"Sternotomy + CPB Cannulation",badge:"OR",hr:72,bp:130,spo2:97,ef:50,flow:4.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:42,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Sternotomy",
+     alert:{c:"ai",t:"Median sternotomy — sternal retractor open — IMA harvesting begins"},pacer:false,proc:'sternotomy',
+     info:"<b>Median sternotomy — chest opened.</b> Oscillating saw through sternum. Sternal retractor (Finochietto) deployed — chest cavity opened. Left internal mammary artery (LIMA) harvested off chest wall — 15–18 cm pedicle. Pericardium opened. Right SVG harvesting simultaneous by second team. <span class='pill py'>OR</span>"},
+    {id:2,lbl:"Cardiopulmonary Bypass",badge:"CPB On",hr:0,bp:55,spo2:99,ef:0,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Asystole",
+     risk:55,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"CPB",
+     alert:{c:"aw",t:"Aorta cross-clamped — cardioplegia delivered — cardiac arrest induced"},pacer:false,proc:'cpb',
+     info:"<b>Cardiopulmonary bypass — heart arrested.</b> Aortic and venous cannulas placed. CPB initiated at 2 L/min/m². Cross-clamp applied to aorta. Cold crystalloid cardioplegia 1L delivered into aortic root — cardiac arrest in diastole. Heart temperature 18°C. Surgeons now operating on a still, bloodless heart. <span class='pill po'>CPB Active</span>"},
+    {id:3,lbl:"LIMA → LAD Anastomosis",badge:"LIMA-LAD",hr:0,bp:55,spo2:99,ef:0,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Asystole",
+     risk:50,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Anastomosis",
+     alert:{c:"ai",t:"LIMA sutured to LAD distal to stenosis — 7-0 prolene — running suture"},pacer:false,proc:'lima_lad',
+     info:"<b>LIMA-to-LAD distal anastomosis.</b> LAD arteriotomy made distal to stenosis (2 cm incision). LIMA trimmed and spatulated. 7-0 prolene running suture — heel, toe, sides. Anastomosis checked for haemostasis. LIMA is the gold standard conduit — 95% patency at 10 years. <span class='pill pb'>Anastomosis</span>"},
+    {id:4,lbl:"SVG → RCA / OM Grafts",badge:"SVG x2",hr:0,bp:55,spo2:99,ef:0,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Asystole",
+     risk:48,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"SVG Grafts",
+     alert:{c:"ai",t:"SVG proximal ends anastomosed to aorta — sequential graft to RCA + OM"},pacer:false,proc:'svg_grafts',
+     info:"<b>Saphenous vein graft × 2 — sequential grafting.</b> SVG1: proximal aortic punch + distal to RCA. SVG2: aortic punch + sequential to OM1 and OM2. Aortic partial-occluding clamp for proximal anastomoses. All grafts probed — no kinking. 3-vessel CABG complete. <span class='pill py'>SVG Done</span>"},
+    {id:5,lbl:"Cross-Clamp Release + Defibrillation",badge:"Reperfusion",hr:88,bp:95,spo2:97,ef:46,flow:4.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"VF→SR",
+     risk:35,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Reperfusing",
+     alert:{c:"aw",t:"Cross-clamp released — VF induced — internal defibrillation 10J — SR restored"},pacer:false,proc:'reperfusion',
+     info:"<b>Cross-clamp released — cardiac reperfusion.</b> Warm blood cardioplegia (hot shot) delivered. Cross-clamp removed — all grafts now perfusing. VF induced on reperfusion (expected). Internal defibrillation paddles: 10J × 1 → sinus rhythm. CPB weaned over 15 min. Grafts visually pulsating. <span class='pill po'>Reperfusing</span>"},
+    {id:6,lbl:"Chest Closure + ICU",badge:"ICU",hr:78,bp:118,spo2:99,ef:52,flow:4.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",
+     risk:18,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Closed",
+     alert:null,pacer:false,proc:'chest_close',
+     info:"<b>Chest closure — transferred to cardiac ICU.</b> Mediastinal and pleural drains placed. Sternal wires × 6 approximate sternum. Diathermy haemostasis. Layered closure. Transferred to CICU intubated. Extubation target: 4–6h. EF expected to recover to 55–60% over 6 weeks as hibernating myocardium recovers. <span class='pill pg'>ICU</span>"},
+  ]},
+};
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let activeKey='pci', stageIdx=0, ecgRate=72, ecgMode='normal';
+let beatOn=true, rotateOn=false, wireOn=false, xrayOn=false, glowOn=true;
+let hrManual=null, currentView='beat', targetBeatSpd=1.0;
+
+// ═══════════════════════════════════════════════════════════
+//  DISEASE TABS
+// ═══════════════════════════════════════════════════════════
+const SHORT={pci:'PCI',stemi:'STEMI',ablation:'AF Ablation',cabg:'CABG'};
+function renderTabs(){
+  document.getElementById('disTabs').innerHTML=
+    Object.keys(DISEASES).map(k=>
+      `<button class="dtab${k===activeKey?' active':''}" onclick="switchDis('${k}')">${SHORT[k]}</button>`
+    ).join('');
+}
+function switchDis(k){ activeKey=k; stageIdx=0; renderTabs(); applyStage(0); }
+
+// ═══════════════════════════════════════════════════════════
+//  STAGE LIST
+// ═══════════════════════════════════════════════════════════
+function renderStages(){
+  const stages=DISEASES[activeKey].stages;
+  document.getElementById('stageList').innerHTML=stages.map((s,i)=>`
+    <button class="stg-btn ${i===stageIdx?'active':i<stageIdx?'done':''}" onclick="goStage(${i})">
+      <div class="stg-dot"></div><span>${s.lbl}</span>
+      <span class="stg-badge">${s.badge}</span>
+    </button>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  APPLY STAGE
+// ═══════════════════════════════════════════════════════════
+function applyStage(i){
+  stageIdx=i;
+  const D=DISEASES[activeKey], s=D.stages[i];
+  document.getElementById('rpModule').textContent=D.name;
+  document.getElementById('vpTitle').textContent=`${D.name} — ${s.lbl}`;
+
+  // Vitals
+  const hr=hrManual!==null?hrManual:s.hr;
+  setVital('vHR','vc-hr',hr, hr>100?'vr':hr>86?'vy':'vg', hr>100?'red':hr>86?'yellow':'green');
+  setVital('vBP','vc-bp',s.bp, s.bp>150?'vr':s.bp>135?'vy':'vb', s.bp>150?'red':s.bp>135?'yellow':'blue');
+  setVital('vSPO2','vc-spo2',s.spo2, s.spo2<92?'vr':s.spo2<95?'vy':'vg', s.spo2<92?'red':s.spo2<95?'yellow':'green');
+  setVital('vEF','vc-ef',s.ef, s.ef<35?'vr':s.ef<50?'vy':'vc', s.ef<35?'red':s.ef<50?'yellow':'cyan');
+
+  // ECG
+  ecgRate=hrManual!==null?hrManual:s.hr;
+  ecgMode=s.ecgOvr?'_ovr':D.ecg;
+  const ecgLbls={normal:'NSR',afib:'AF — Irreg',paced:'Paced',lbbb:'LBBB',stemi:'ST-Elevation',_ovr:s.ecgOvr||''};
+  const ecgClrs={normal:'var(--green)',afib:'var(--yellow)',paced:'var(--purple)',lbbb:'var(--blue)',stemi:'var(--red)',_ovr:'var(--muted2)'};
+  const eb=document.getElementById('ecgBadge');
+  eb.textContent=ecgLbls[ecgMode]; eb.style.color=ecgClrs[ecgMode]; eb.style.borderColor=ecgClrs[ecgMode]+'44';
+
+  // Risk
+  document.getElementById('riskBar').style.width=s.risk+'%';
+  document.getElementById('riskBar').style.background=s.rClr;
+  const rn=document.getElementById('riskNum'); rn.textContent=s.rLbl; rn.style.color=s.rClr;
+  const rt=document.getElementById('riskTag');
+  rt.textContent=s.rTag; rt.style.color=s.rClr; rt.style.background=s.rBg; rt.style.borderColor=s.rBdr;
+
+  // Alert
+  const ab=document.getElementById('alertBar');
+  if(s.alert){ ab.className=`alert-bar show ${s.alert.c}`; document.getElementById('alertTxt').textContent=s.alert.t; }
+  else ab.className='alert-bar';
+
+  // Pacemaker
+  const pw=document.getElementById('pacerWidget');
+  if(s.pacer){ pw.classList.add('show'); document.getElementById('pacerRate').textContent=s.pacerRate||70; }
+  else pw.classList.remove('show');
+
+  // HUD
+  document.getElementById('hdLumen').textContent=s.lumen;
+  const hp=document.getElementById('hdPat'); hp.textContent=s.pat+'%';
+  document.getElementById('hcPat').className='hchip'+(s.pat<50?' crit':s.pat<80?' warn':' ok');
+  document.getElementById('hdSten').textContent=s.sten+'%';
+  document.getElementById('hcSten').className='hchip'+(s.sten>70?' crit':s.sten>30?' warn':' ok');
+  document.getElementById('hdFlow').textContent=(s.flow||5).toFixed(1)+' L/min';
+  document.getElementById('hcFlow').className='hchip'+(s.flow<2?' crit':s.flow<3.5?' warn':' ok');
+  document.getElementById('hdRhythm').textContent=s.rhythm||'Regular';
+
+  // Notes
+  document.getElementById('notesBody').innerHTML=s.info;
+
+  // Vessel
+  drawVessel(s);
+
+  // Beat speed
+  targetBeatSpd=s.hr/72;
+
+  renderStages();
+  if(typeof applyProcedureMode==='function'&&typeof bScene!=='undefined'&&bScene)
+    applyProcedureMode(s.proc||'idle');
+}
+
+function setVital(valId,cardId,val,valCls,cardClr){
+  const el=document.getElementById(valId); el.textContent=val; el.className='v-val '+valCls;
+  document.getElementById(cardId).className='vcard vc-'+cardClr;
+}
+function goStage(i){ applyStage(i); }
+function nextStep(){ const L=DISEASES[activeKey].stages.length; if(stageIdx<L-1)applyStage(stageIdx+1); }
+function prevStep(){ if(stageIdx>0)applyStage(stageIdx-1); }
+function hrOverride(v){
+  hrManual=parseInt(v);
+  document.getElementById('hrDisplay').textContent=v;
+  const pct=((v-30)/(200-30)*100).toFixed(1)+'%';
+  document.getElementById('hrSlider').style.setProperty('--pct',pct);
+  applyStage(stageIdx);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VESSEL CROSS-SECTION
+// ═══════════════════════════════════════════════════════════
+function drawVessel(s){
+  const svg=document.getElementById('vesselSvg');
+  if(!svg) return;
+  // Use a namespace-aware approach for SVG
+  const cx=55,cy=50,oR=32,maxPl=22;
+  const pR=(s.sten/100)*maxPl, iR=oR-pR;
+  const hasStent=s.stent||false, hasBalloon=s.balloon||false;
+  let h=`<rect width="110" height="96" fill="#06080e"/>`;
+  // Outer adventitia
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${oR+4}" ry="${oR+4}" fill="#160808" stroke="#5a1515" stroke-width="1.2"/>`;
+  // Plaque
+  if(pR>1){
+    const pc=s.sten>70?'#c8950e':'#b07e0a';
+    h+=`<ellipse cx="${cx}" cy="${cy}" rx="${oR+2}" ry="${oR+2}" fill="${pc}" opacity=".88"/>`;
+    h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR+1.5}" ry="${iR+1.5}" fill="#06080e"/>`;
+  }
+  // Balloon
+  if(hasBalloon){
+    h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR+4}" ry="${iR+4}" fill="none" stroke="#3b9eff" stroke-width="1.4" stroke-dasharray="3 2" opacity=".75"/>`;
+    h+=`<line x1="${cx}" y1="${cy-iR-12}" x2="${cx}" y2="${cy-iR-2}" stroke="#3b9eff" stroke-width="1" opacity=".5"/>`;
+  }
+  // Stent struts
+  if(hasStent){
+    const sr=iR+2.5;
+    for(let a=0;a<360;a+=30){
+      const r=a*Math.PI/180;
+      const x1=cx+(sr-3)*Math.cos(r),y1=cy+(sr-3)*Math.sin(r);
+      const x2=cx+sr*Math.cos(r+15*Math.PI/180),y2=cy+sr*Math.sin(r+15*Math.PI/180);
+      const x3=cx+(sr-3)*Math.cos(r+30*Math.PI/180),y3=cy+(sr-3)*Math.sin(r+30*Math.PI/180);
+      h+=`<polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="#a0b4c8" stroke-width=".9" opacity=".9"/>`;
+    }
+  }
+  // Lumen
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR}" ry="${iR}" fill="#0c040f"/>`;
+  // Blood cells
+  const n=Math.round((s.flow||5)/5*18);
+  for(let i=0;i<n;i++){
+    const a=(i/n)*2*Math.PI, r2=(iR-3)*Math.sqrt(Math.random());
+    const px=cx+r2*Math.cos(a+Math.random()*.6), py=cy+r2*Math.sin(a+Math.random()*.6);
+    h+=`<circle cx="${px}" cy="${py}" r="${1.1+Math.random()*1.5}" fill="#e84040" opacity="${.35+Math.random()*.55}"/>`;
+  }
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR}" ry="${iR}" fill="none" stroke="#e84040" stroke-width=".5" opacity=".22"/>`;
+  h+=`<text x="3" y="92" font-size="7.5" fill="#3a4a68" font-family="JetBrains Mono,monospace">LAD  ${s.sten}% stenosis</text>`;
+  svg.innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ECG ENGINE
+// ═══════════════════════════════════════════════════════════
+const ecgCv=document.getElementById('ecgCanvas');
+const ecgCx=ecgCv.getContext('2d');
+let ecgBuf=new Array(136).fill(.5), ecgPh=0;
+
+function ecgSample(t,mode){
+  const m=t%1;
+  if(mode==='afib'){
+    const n=.048*Math.sin(t*52.3)+.032*Math.sin(t*79.1)+.018*Math.sin(t*118.7)+.009*Math.sin(t*207);
+    if(m<.03)return .5+.52*Math.sin(m/.03*Math.PI)+n;
+    if(m<.07)return .5-.11*Math.sin((m-.03)/.04*Math.PI)+n;
+    if(m<.2)return .5+.07*Math.sin((m-.07)/.13*Math.PI)+n;
+    return .5+n;
+  }
+  if(mode==='paced'){
+    if(m<.012)return .5+1.05;
+    if(m<.018)return .5-.35;
+    if(m<.06)return .5+.06;
+    if(m<.13)return .5+.62*Math.sin((m-.06)/.07*Math.PI);
+    if(m<.3)return .5+.1*Math.sin((m-.13)/.17*Math.PI);
+    return .5;
+  }
+  if(mode==='lbbb'){
+    if(m<.04)return .5+.05*Math.sin(m/.04*Math.PI);
+    if(m<.07)return .5-.1*Math.sin((m-.04)/.03*Math.PI);
+    if(m<.14)return .5+.5*Math.sin((m-.07)/.07*Math.PI);
+    if(m<.21)return .5+.38*Math.sin((m-.14)/.07*Math.PI+.45);
+    if(m<.25)return .5-.1*Math.sin((m-.21)/.04*Math.PI);
+    if(m<.38)return .5+.11*Math.sin((m-.25)/.13*Math.PI);
+    return .5;
+  }
+  if(mode==='stemi'){
+    if(m<.05)return .5+.06*Math.sin(m/.05*Math.PI);
+    if(m<.08)return .5-.09*Math.sin((m-.05)/.03*Math.PI);
+    if(m<.11)return .5+.92*Math.sin((m-.08)/.03*Math.PI);
+    if(m<.14)return .5-.24*Math.sin((m-.11)/.03*Math.PI);
+    if(m<.29)return .5+.3-(m-.14)*1.0;
+    if(m<.44)return .5+.18*Math.sin((m-.29)/.15*Math.PI*.8);
+    return .5;
+  }
+  // Normal sinus
+  if(m<.05)return .5+.055*Math.sin(m/.05*Math.PI);
+  if(m<.08)return .5-.085*Math.sin((m-.05)/.03*Math.PI);
+  if(m<.11)return .5+.84*Math.sin((m-.08)/.03*Math.PI);
+  if(m<.14)return .5-.23*Math.sin((m-.11)/.03*Math.PI);
+  if(m<.27)return .5+.16*Math.sin((m-.14)/.13*Math.PI);
+  return .5;
+}
+const ECG_C={normal:'#2ecc71',afib:'#f0a500',paced:'#a855f7',lbbb:'#3b9eff',stemi:'#e84040',_ovr:'#6b7fa8'};
+function drawECG(){
+  const w=ecgCv.width,h=ecgCv.height;
+  ecgCx.fillStyle='#06080e'; ecgCx.fillRect(0,0,w,h);
+  ecgCx.strokeStyle='rgba(46,204,113,.12)'; ecgCx.lineWidth=.5;
+  for(let x=0;x<w;x+=13){ecgCx.beginPath();ecgCx.moveTo(x,0);ecgCx.lineTo(x,h);ecgCx.stroke();}
+  for(let y=0;y<h;y+=13){ecgCx.beginPath();ecgCx.moveTo(0,y);ecgCx.lineTo(w,y);ecgCx.stroke();}
+  const modeKey=ecgMode==='_ovr'?'normal':ecgMode;
+  const irr=modeKey==='afib'?(.7+Math.random()*.65):1;
+  ecgPh+=(ecgRate/60)*1.25*irr*.016;
+  ecgBuf.shift(); ecgBuf.push(ecgSample(ecgPh,modeKey));
+  const col=ECG_C[modeKey]||ECG_C.normal;
+  ecgCx.beginPath(); ecgCx.strokeStyle=col; ecgCx.lineWidth=1.7;
+  ecgCx.shadowColor=col; ecgCx.shadowBlur=4;
+  ecgBuf.forEach((v,i)=>{
+    const x=i*2,y=h-v*h*.88-h*.05;
+    i===0?ecgCx.moveTo(x,y):ecgCx.lineTo(x,y);
+  });
+  ecgCx.stroke(); ecgCx.shadowBlur=0;
+}
+setInterval(drawECG,16);
+
+// ═══════════════════════════════════════════════════════════
+//  BABYLON.JS — SURGICAL OR SIMULATION ENGINE
+// ═══════════════════════════════════════════════════════════
+let engine, bScene, heartBeat=null, heartAnat=null;
+let beatPh=0, animT=0, beatSpd=1.0, procT=0;
+let glowLayer=null, highlightLayer=null;
+let beatMeshes=[], anatMeshes=[];
+let beatBaseScale=1, anatBaseScale=1;
+let beatCenterY=0, anatCenterY=0;
+
+// OR surgical props
+let catheter=null, stentMesh=null, ablationProbe=null, needle=null, retractorL=null, retractorR=null;
+let surgicalLight1=null, surgicalLight2=null, orTableMesh=null;
+let bloodPS=null, smokePS=null, sparkPS=null;
+let orEnv={}; // container for all OR environment meshes
+let procedureMode='idle'; // idle | cathpci | ablation | stent | pacing | bypass
+let toolT=0, stentDeployed=false, ablationActive=false;
+
+// ── material cache ──
+const _mats={};
+function pbr(name,albedo,rough,metal,emis,alpha){
+  if(_mats[name])return _mats[name];
+  const m=new BABYLON.PBRMaterial(name,bScene);
+  m.albedoColor=new BABYLON.Color3(...albedo);
+  m.roughness=rough; m.metallic=metal;
+  if(emis)m.emissiveColor=new BABYLON.Color3(...emis);
+  if(alpha!=null){m.alpha=alpha;m.transparencyMode=BABYLON.PBRMaterial.PBRMATERIAL_ALPHABLEND;m.backFaceCulling=false;}
+  return _mats[name]=m;
+}
+
+function initBabylon(){
+  const canvas=document.getElementById('renderCanvas');
+  engine=new BABYLON.Engine(canvas,true,{preserveDrawingBuffer:true,stencil:true,adaptToDeviceRatio:true});
+  bScene=new BABYLON.Scene(engine);
+  bScene.clearColor=new BABYLON.Color4(0.02,0.025,0.04,1);
+
+  // ── Camera — surgical overhead angle ──
+  const cam=new BABYLON.ArcRotateCamera('cam',-Math.PI/2,Math.PI/2.4,6.0,new BABYLON.Vector3(0,0,0),bScene);
+  cam.lowerRadiusLimit=2.8; cam.upperRadiusLimit=14;
+  cam.lowerBetaLimit=0.3; cam.upperBetaLimit=Math.PI/1.9;
+  cam.wheelPrecision=35; cam.pinchPrecision=70;
+  cam.attachControl(canvas,true);
+  window._bCam=cam;
+
+  // ── IBL Environment ──
+  const envTex=BABYLON.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env',bScene);
+  bScene.environmentTexture=envTex;
+  bScene.environmentIntensity=0.18; // dim OR ambience
+
+  // ── OR Surgical Overhead Lights (twin spots) ──
+  const sLight1=new BABYLON.SpotLight('sl1',new BABYLON.Vector3(-1.2,5,0.5),new BABYLON.Vector3(0.15,-1,-0.05),0.55,1.8,bScene);
+  sLight1.diffuse=new BABYLON.Color3(1,.98,.92); sLight1.intensity=220;
+  const sLight2=new BABYLON.SpotLight('sl2',new BABYLON.Vector3(1.4,5,-0.3),new BABYLON.Vector3(-0.12,-1,0.04),0.52,1.8,bScene);
+  sLight2.diffuse=new BABYLON.Color3(1,.97,.90); sLight2.intensity=200;
+  surgicalLight1=sLight1; surgicalLight2=sLight2;
+
+  // ── Hemisphere ambient (very dim — OR is focused) ──
+  const hemi=new BABYLON.HemisphericLight('hemi',new BABYLON.Vector3(0,1,0),bScene);
+  hemi.intensity=0.08; hemi.diffuse=new BABYLON.Color3(.6,.7,1); hemi.groundColor=new BABYLON.Color3(.05,.05,.08);
+
+  // ── Pulsing cardiac point light ──
+  const pt=new BABYLON.PointLight('pt',new BABYLON.Vector3(0,0.2,.3),bScene);
+  pt.intensity=3.5; pt.diffuse=new BABYLON.Color3(1,.08,.08); pt.range=5;
+  window._ptLight=pt;
+
+  // ── Glow + Highlight ──
+  glowLayer=new BABYLON.GlowLayer('glow',bScene);
+  glowLayer.intensity=0.7; glowLayer.blurKernelSize=48;
+  highlightLayer=new BABYLON.HighlightLayer('hl',bScene);
+
+  // ── Build OR Scene ──
+  buildOREnvironment();
+  buildSurgicalTools();
+  buildBloodParticles();
+  buildSmokeParticles();
+  buildSparkParticles();
+
+  // ── Load Heart Models ──
+  loadModels();
+
+  // ── Render loop ──
+  engine.runRenderLoop(()=>{ renderLoop(); bScene.render(); });
+  window.addEventListener('resize',()=>engine.resize());
+}
+
+// ════════════════════════════════════════
+//  OR ENVIRONMENT — table, drapes, lights
+// ════════════════════════════════════════
+function buildOREnvironment(){
+  // Operating table surface
+  const table=BABYLON.MeshBuilder.CreateBox('table',{width:5,height:0.12,depth:2.2},bScene);
+  table.position.y=-1.85;
+  const tMat=pbr('tableMat',[0.12,0.14,0.18],0.85,0.02,[0.02,0.025,0.03]);
+  table.material=tMat; orEnv.table=table;
+
+  // Table legs (4)
+  [[-1.8,-1.8],[-1.8,1.8],[1.8,-1.8],[1.8,1.8]].forEach((xz,i)=>{
+    const leg=BABYLON.MeshBuilder.CreateCylinder('leg'+i,{diameter:0.07,height:2.4,tessellation:8},bScene);
+    leg.position=new BABYLON.Vector3(xz[0],-3.05,xz[1]);
+    leg.material=pbr('steelMat',[0.55,0.57,0.6],0.2,0.9); orEnv['leg'+i]=leg;
+  });
+
+  // Surgical drape — sterile blue-green cloth over table
+  const drape=BABYLON.MeshBuilder.CreateBox('drape',{width:4.8,height:0.015,depth:2.0},bScene);
+  drape.position.y=-1.78;
+  const dMat=pbr('drapeMat',[0.04,0.18,0.22],0.92,0.0,[0.008,0.035,0.04],0.96);
+  drape.material=dMat; orEnv.drape=drape;
+
+  // Chest cavity retractor frame (sternal spreader visual)
+  buildRetractors();
+
+  // OR floor (dark tiles)
+  const floor=BABYLON.MeshBuilder.CreateGround('floor',{width:18,height:18,subdivisions:1},bScene);
+  floor.position.y=-5.5;
+  const fMat=new BABYLON.StandardMaterial('floorMat',bScene);
+  fMat.diffuseColor=new BABYLON.Color3(0.06,0.07,0.09);
+  fMat.specularColor=new BABYLON.Color3(0.04,0.04,0.05);
+  floor.material=fMat; orEnv.floor=floor;
+
+  // Overhead surgical light rigs (visual cylinders)
+  buildSurgicalLightRigs();
+
+  // IV pole + monitor silhouette
+  buildOREquipment();
+}
+
+function buildRetractors(){
+  // Sternal retractor — 2 curved arms holding chest open
+  const retMat=pbr('retMat',[0.6,0.62,0.65],0.18,0.92,[0.04,0.045,0.05]);
+
+  retractorL=BABYLON.MeshBuilder.CreateBox('retL',{width:0.06,height:0.08,depth:1.4},bScene);
+  retractorL.position=new BABYLON.Vector3(-1.65,-1.6,0);
+  retractorL.material=retMat;
+
+  retractorR=BABYLON.MeshBuilder.CreateBox('retR',{width:0.06,height:0.08,depth:1.4},bScene);
+  retractorR.position=new BABYLON.Vector3(1.65,-1.6,0);
+  retractorR.material=retMat;
+
+  // Cross bar
+  const bar=BABYLON.MeshBuilder.CreateCylinder('retBar',{diameter:0.04,height:3.35,tessellation:10},bScene);
+  bar.rotation.z=Math.PI/2; bar.position.y=-1.55;
+  bar.material=retMat; orEnv.retBar=bar;
+
+  // Retractor hooks pointing inward
+  [[-1.2,0.55],[1.2,0.55],[-1.2,-0.55],[1.2,-0.55]].forEach((xz,i)=>{
+    const hook=BABYLON.MeshBuilder.CreateCylinder('hook'+i,{diameter:0.03,height:0.32,tessellation:8},bScene);
+    hook.position=new BABYLON.Vector3(xz[0],-1.68,xz[1]);
+    hook.material=retMat; orEnv['hook'+i]=hook;
+  });
+}
+
+function buildSurgicalLightRigs(){
+  const rigMat=pbr('rigMat',[0.75,0.75,0.78],0.15,0.88);
+  // Main light housing disc
+  [-1.2,1.4].forEach((x,i)=>{
+    const disc=BABYLON.MeshBuilder.CreateCylinder('disc'+i,{diameter:1.1,height:0.12,tessellation:32},bScene);
+    disc.position=new BABYLON.Vector3(x,5.2,i===0?0.5:-0.3);
+    disc.material=rigMat; orEnv['disc'+i]=disc;
+    // Inner glow ring
+    const ring=BABYLON.MeshBuilder.CreateTorus('ring'+i,{diameter:0.85,thickness:0.04,tessellation:48},bScene);
+    ring.position=new BABYLON.Vector3(x,5.08,i===0?0.5:-0.3);
+    const rMat=pbr('rMat'+i,[1,.98,.9],0.3,0.0,[1,.96,.85]);
+    ring.material=rMat;
+    if(glowLayer)glowLayer.addIncludedOnlyMesh(ring);
+    orEnv['ring'+i]=ring;
+    // Arm from ceiling
+    const arm=BABYLON.MeshBuilder.CreateCylinder('arm'+i,{diameter:0.05,height:1.8,tessellation:8},bScene);
+    arm.position=new BABYLON.Vector3(x,6.0,i===0?0.5:-0.3);
+    arm.material=rigMat; orEnv['arm'+i]=arm;
+  });
+}
+
+function buildOREquipment(){
+  const eqMat=pbr('eqMat',[0.12,0.13,0.16],0.7,0.05,[0.015,0.018,0.022]);
+  // Bypass machine silhouette (left bg)
+  const bypassBox=BABYLON.MeshBuilder.CreateBox('bypass',{width:0.9,height:2.2,depth:0.55},bScene);
+  bypassBox.position=new BABYLON.Vector3(-4.0,-.8,-2.2);
+  bypassBox.material=eqMat; orEnv.bypass=bypassBox;
+  // Monitor stack (right bg)
+  const monBox=BABYLON.MeshBuilder.CreateBox('monitor',{width:0.7,height:1.6,depth:0.4},bScene);
+  monBox.position=new BABYLON.Vector3(4.2,-.4,-1.8);
+  const monMat=pbr('monMat',[0.05,0.08,0.12],0.5,0.1,[0.0,0.2,0.35],0.95);
+  monBox.material=monMat; orEnv.monitor=monBox;
+  if(glowLayer)glowLayer.addIncludedOnlyMesh(monBox);
+  // IV pole
+  const ivPole=BABYLON.MeshBuilder.CreateCylinder('ivpole',{diameter:0.03,height:4.0,tessellation:8},bScene);
+  ivPole.position=new BABYLON.Vector3(3.5,0.2,1.5);
+  ivPole.material=pbr('ivMat',[0.7,0.72,0.75],0.18,0.88); orEnv.ivPole=ivPole;
+  // IV bag
+  const ivBag=BABYLON.MeshBuilder.CreateBox('ivbag',{width:0.2,height:0.32,depth:0.06},bScene);
+  ivBag.position=new BABYLON.Vector3(3.5,2.35,1.5);
+  ivBag.material=pbr('ivBagMat',[0.5,.9,.95],0.4,0.0,[0.05,.22,.28],0.7); orEnv.ivBag=ivBag;
+}
+
+// ════════════════════════════════════════
+//  SURGICAL TOOLS — catheter, stent, probe, needle
+// ════════════════════════════════════════
+function buildSurgicalTools(){
+  // ── Catheter / guidewire (PCI) ──
+  const catMat=pbr('catMat',[0.6,0.62,0.65],0.15,0.92,[0.04,0.05,0.06]);
+  catheter=BABYLON.MeshBuilder.CreateCylinder('catheter',{diameter:0.045,height:3.2,tessellation:12},bScene);
+  catheter.material=catMat;
+  catheter.position=new BABYLON.Vector3(2.8,0,0.2);
+  catheter.rotation.z=Math.PI/2-0.18;
+  catheter.setEnabled(false);
+  if(glowLayer)glowLayer.addIncludedOnlyMesh(catheter);
+
+  // Catheter tip glow ball
+  const tipGlow=BABYLON.MeshBuilder.CreateSphere('catTip',{diameter:0.08,segments:8},bScene);
+  tipGlow.position=new BABYLON.Vector3(0,0,0);
+  const tipMat=pbr('tipMat',[0.9,.85,.2],0.2,0.6,[1,.9,.1]);
+  tipGlow.material=tipMat; tipGlow.parent=catheter;
+  tipGlow.position.y=-1.6; // tip of catheter
+  if(glowLayer)glowLayer.addIncludedOnlyMesh(tipGlow);
+
+  // ── Stent mesh (expanded ring lattice) ──
+  const stentMat=pbr('stentMat',[0.72,0.75,0.78],0.12,0.95,[0.12,0.15,0.18]);
+  stentMesh=new BABYLON.TransformNode('stentNode',bScene);
+  for(let i=0;i<12;i++){
+    const ang=i/12*Math.PI*2;
+    const bar=BABYLON.MeshBuilder.CreateCylinder('sb'+i,{diameter:0.014,height:0.32,tessellation:6},bScene);
+    bar.parent=stentMesh;
+    bar.position=new BABYLON.Vector3(Math.cos(ang)*0.22,0,Math.sin(ang)*0.22);
+    bar.rotation.x=Math.PI/2;
+    bar.material=stentMat;
+    if(glowLayer)glowLayer.addIncludedOnlyMesh(bar);
+  }
+  // cross links
+  for(let i=0;i<6;i++){
+    const ang=i/6*Math.PI*2+Math.PI/12;
+    const link=BABYLON.MeshBuilder.CreateCylinder('sl'+i,{diameter:0.01,height:0.44,tessellation:6},bScene);
+    link.parent=stentMesh;
+    link.position=new BABYLON.Vector3(0,0,0);
+    link.rotation.z=Math.PI/2; link.rotation.y=ang;
+    link.material=stentMat;
+  }
+  stentMesh.setEnabled(false);
+  stentMesh.position=new BABYLON.Vector3(0.3,0.15,0.4);
+
+  // ── Ablation probe (RF) ──
+  const ablMat=pbr('ablMat',[0.2,0.22,0.25],0.25,0.85,[0.06,0.08,0.1]);
+  ablationProbe=BABYLON.MeshBuilder.CreateCylinder('abProbe',{diameter:0.038,height:2.8,tessellation:10},bScene);
+  ablationProbe.material=ablMat;
+  ablationProbe.position=new BABYLON.Vector3(-2.6,0.4,-0.3);
+  ablationProbe.rotation.z=-(Math.PI/2-0.22);
+  ablationProbe.setEnabled(false);
+  // probe tip glow
+  const ablTip=BABYLON.MeshBuilder.CreateSphere('ablTip',{diameter:0.07,segments:8},bScene);
+  ablTip.parent=ablationProbe; ablTip.position.y=-1.4;
+  ablTip.material=pbr('ablTipMat',[1,.4,.0],0.2,0.5,[1,.5,.05]);
+  if(glowLayer)glowLayer.addIncludedOnlyMesh(ablTip);
+
+  // ── Pacing lead (wire) ──
+  needle=BABYLON.MeshBuilder.CreateCylinder('paceLead',{diameter:0.022,height:3.0,tessellation:8},bScene);
+  needle.material=pbr('leadMat',[0.55,0.3,0.75],0.2,0.7,[0.2,0.05,0.45]);
+  needle.position=new BABYLON.Vector3(0.5,0,1.8);
+  needle.rotation.x=Math.PI/2-0.15;
+  needle.setEnabled(false);
+  if(glowLayer)glowLayer.addIncludedOnlyMesh(needle);
+
+  // ── Surgical suture needle ──
+  const sutMat=pbr('sutMat',[0.65,0.67,0.7],0.12,0.94,[0.08,0.1,0.12]);
+  const sutNeedle=BABYLON.MeshBuilder.CreateCylinder('suture',{diameterTop:0.01,diameterBottom:0.04,height:0.45,tessellation:10},bScene);
+  sutNeedle.position=new BABYLON.Vector3(-1.8,-1.1,0.8);
+  sutNeedle.rotation.z=1.1; sutNeedle.rotation.y=0.4;
+  sutNeedle.material=sutMat; orEnv.suture=sutNeedle;
+  if(glowLayer)glowLayer.addIncludedOnlyMesh(sutNeedle);
+}
+
+// ════════════════════════════════════════
+//  PARTICLE SYSTEMS
+// ════════════════════════════════════════
+function buildBloodParticles(){
+  const ps=new BABYLON.ParticleSystem('blood',400,bScene);
+  ps.emitter=new BABYLON.Vector3(0,0.1,0.3);
+  ps.minEmitBox=new BABYLON.Vector3(-.6,-.3,-.3);
+  ps.maxEmitBox=new BABYLON.Vector3(.6,.1,.3);
+  ps.particleTexture=new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png',bScene);
+  ps.color1=new BABYLON.Color4(.95,.05,.05,.5);
+  ps.color2=new BABYLON.Color4(.7,.02,.02,.3);
+  ps.colorDead=new BABYLON.Color4(.3,.01,.01,0);
+  ps.minSize=.018; ps.maxSize=.055;
+  ps.minLifeTime=2.5; ps.maxLifeTime=5;
+  ps.emitRate=30;
+  ps.minEmitPower=.03; ps.maxEmitPower=.1;
+  ps.updateSpeed=.008;
+  ps.gravity=new BABYLON.Vector3(0,-.04,0);
+  ps.start(); bloodPS=ps;
+}
+
+function buildSmokeParticles(){
+  const ps=new BABYLON.ParticleSystem('smoke',120,bScene);
+  ps.emitter=new BABYLON.Vector3(-0.2,0.2,0.3);
+  ps.minEmitBox=new BABYLON.Vector3(-.05,0,-.05);
+  ps.maxEmitBox=new BABYLON.Vector3(.05,.02,.05);
+  ps.particleTexture=new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png',bScene);
+  ps.color1=new BABYLON.Color4(.6,.55,.45,.15);
+  ps.color2=new BABYLON.Color4(.7,.65,.55,.08);
+  ps.colorDead=new BABYLON.Color4(.5,.5,.4,0);
+  ps.minSize=.06; ps.maxSize=.22;
+  ps.minLifeTime=1.2; ps.maxLifeTime=3.0;
+  ps.emitRate=0; // activated during ablation
+  ps.minEmitPower=.06; ps.maxEmitPower=.14;
+  ps.updateSpeed=.01;
+  ps.gravity=new BABYLON.Vector3(0,.08,0);
+  ps.start(); smokePS=ps;
+}
+
+function buildSparkParticles(){
+  const ps=new BABYLON.ParticleSystem('sparks',80,bScene);
+  ps.emitter=new BABYLON.Vector3(-0.2,0.25,0.3);
+  ps.minEmitBox=new BABYLON.Vector3(-.04,0,-.04);
+  ps.maxEmitBox=new BABYLON.Vector3(.04,.01,.04);
+  ps.particleTexture=new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png',bScene);
+  ps.color1=new BABYLON.Color4(1,.85,.1,.9);
+  ps.color2=new BABYLON.Color4(1,.4,.05,.6);
+  ps.colorDead=new BABYLON.Color4(1,.1,0,0);
+  ps.minSize=.012; ps.maxSize=.04;
+  ps.minLifeTime=.15; ps.maxLifeTime=.5;
+  ps.emitRate=0;
+  ps.minEmitPower=.25; ps.maxEmitPower=.7;
+  ps.updateSpeed=.016;
+  ps.gravity=new BABYLON.Vector3(0,-.25,0);
+  ps.start(); sparkPS=ps;
+}
+
+// ════════════════════════════════════════
+//  HEART MODEL LOADING
+// ════════════════════════════════════════
+function loadModels(){
+  setLoaderTxt('Preparing surgical suite…');
+  BABYLON.SceneLoader.ImportMeshAsync('','models/','beating-heart.glb',bScene).then(result=>{
+    heartBeat=new BABYLON.TransformNode('heartBeat',bScene);
+    result.meshes.forEach(m=>{
+      if(m.name==='__root__')return;
+      m.parent=heartBeat; m.receiveShadows=true;
+      beatMeshes.push(m); enhanceMesh(m,'beat');
+    });
+    fitToSize(heartBeat,2.8);
+    beatBaseScale=heartBeat.scaling.x; beatCenterY=heartBeat.position.y;
+    heartBeat.rotation.y=Math.PI;
+    heartBeat.setEnabled(currentView==='beat');
+
+    setLoaderTxt('Loading anatomy model…');
+    BABYLON.SceneLoader.ImportMeshAsync('','models/','realistic_human_heart.glb',bScene).then(res2=>{
+      heartAnat=new BABYLON.TransformNode('heartAnat',bScene);
+      res2.meshes.forEach(m=>{
+        if(m.name==='__root__')return;
+        m.parent=heartAnat; m.receiveShadows=true;
+        anatMeshes.push(m); enhanceMesh(m,'anat');
+      });
+      fitToSize(heartAnat,2.8);
+      anatBaseScale=heartAnat.scaling.x; anatCenterY=heartAnat.position.y;
+      heartAnat.rotation.y=Math.PI;
+      heartAnat.setEnabled(currentView==='anatomy');
+      hideLoader(); applyProcedureMode();
+    }).catch(()=>{ hideLoader(); applyProcedureMode(); });
+  }).catch(()=>{ buildFallbackHeart(); hideLoader(); applyProcedureMode(); });
+}
+
+function enhanceMesh(mesh,type){
+  if(!mesh.material)return;
+  const mat=mesh.material;
+  if(type==='beat'){
+    if(mat.roughness!=null)mat.roughness=Math.min(mat.roughness||.5,.45);
+    if(mat.metallic!=null)mat.metallic=Math.max(mat.metallic||0,.06);
+    mat.emissiveColor=new BABYLON.Color3(.28,.02,.02);
+    if(glowLayer)glowLayer.addIncludedOnlyMesh(mesh);
+  } else {
+    mat.emissiveColor=new BABYLON.Color3(.1,.01,.01);
+  }
+}
+
+function fitToSize(node,targetSize){
+  const children=node.getChildMeshes();
+  if(!children.length)return 0;
+  let mn=new BABYLON.Vector3(Infinity,Infinity,Infinity);
+  let mx=new BABYLON.Vector3(-Infinity,-Infinity,-Infinity);
+  children.forEach(m=>{
+    const bi=m.getHierarchyBoundingVectors();
+    mn=BABYLON.Vector3.Minimize(mn,bi.min);
+    mx=BABYLON.Vector3.Maximize(mx,bi.max);
+  });
+  const maxDim=Math.max(mx.x-mn.x,mx.y-mn.y,mx.z-mn.z);
+  if(maxDim===0)return 0;
+  const scale=targetSize/maxDim;
+  node.scaling=new BABYLON.Vector3(scale,scale,scale);
+  const offset=mn.add(mx).scale(0.5).scale(-scale);
+  node.position=offset;
+  return offset.y;
+}
+
+function buildFallbackHeart(){
+  const g=new BABYLON.TransformNode('fbHeart',bScene);
+  const mat=pbr('fbm',[.82,.1,.1],.35,.08,[.28,.02,.02]);
+  const mat2=pbr('fbm2',[.6,.07,.07],.45,.05,[.15,.01,.01]);
+  function sph(nm,d,pos,par,mt){
+    const s=BABYLON.MeshBuilder.CreateSphere(nm,{diameter:d,segments:28},bScene);
+    s.position=new BABYLON.Vector3(...pos); s.parent=par; s.material=mt;
+    beatMeshes.push(s); if(glowLayer)glowLayer.addIncludedOnlyMesh(s); return s;
+  }
+  sph('lv',1.8,[-.35,-.05,0],g,mat); sph('rv',1.42,[.35,.08,.1],g,mat);
+  sph('la',1.0,[-.3,.78,-.22],g,mat2); sph('ra',.9,[.3,.78,-.18],g,mat2);
+  const ao=BABYLON.MeshBuilder.CreateCylinder('ao',{diameterTop:.24,diameterBottom:.32,height:.9,tessellation:16},bScene);
+  ao.position=new BABYLON.Vector3(.06,1.52,.04); ao.rotation.z=.18; ao.parent=g; ao.material=mat2; beatMeshes.push(ao);
+  const pa=BABYLON.MeshBuilder.CreateCylinder('pa',{diameterTop:.2,diameterBottom:.26,height:.65,tessellation:14},bScene);
+  pa.position=new BABYLON.Vector3(.32,1.3,.1); pa.rotation.z=-.38; pa.parent=g; pa.material=mat2; beatMeshes.push(pa);
+  fitToSize(g,2.8); g.rotation.y=Math.PI;
+  beatBaseScale=g.scaling.x; anatBaseScale=g.scaling.x;
+  beatCenterY=g.position.y; anatCenterY=g.position.y;
+  heartBeat=g; heartAnat=g; heartBeat.setEnabled(true);
+}
+
+// ════════════════════════════════════════
+//  PROCEDURE MODE — driven by stage.proc string
+//  Each proc string sets up tools at anatomically correct positions
+// ════════════════════════════════════════
+function applyProcedureMode(proc){
+  proc=proc||'idle';
+  procedureMode=proc;
+  toolT=0; stentDeployed=false; ablationActive=false;
+
+  // Hide all tools
+  [catheter,stentMesh,ablationProbe,needle].forEach(t=>{if(t)t.setEnabled(false);});
+  if(smokePS)smokePS.emitRate=0;
+  if(sparkPS)sparkPS.emitRate=0;
+
+  // ── Guidewire navigating coronary artery from radial sheath ──
+  if(proc==='angio'||proc==='stenosis'||proc==='wire'||proc==='stemi_access'||proc==='stemi_wire'){
+    if(catheter){
+      catheter.setEnabled(true);
+      // Start position: entering from right side (radial approach)
+      catheter.position=new BABYLON.Vector3(3.8,0.4,0.1);
+      catheter.rotation.z=Math.PI/2-0.12;
+      catheter.rotation.y=0.08;
+    }
+  }
+
+  // ── Balloon inflated at lesion site on heart surface ──
+  if(proc==='balloon'||proc==='stemi_arrival'){
+    if(catheter){
+      catheter.setEnabled(true);
+      // Wire already across — catheter sits at lesion on anterior surface of heart
+      catheter.position=new BABYLON.Vector3(0.6,0.3,0.55);
+      catheter.rotation.z=Math.PI/2-0.35;
+      catheter.rotation.y=0.15;
+      // Balloon tip starts deflated — will inflate in render loop
+      const tip=bScene&&bScene.getMeshByName('catTip');
+      if(tip)tip.scaling=new BABYLON.Vector3(1,1,1);
+    }
+  }
+
+  // ── Stent scaffold at deployed position on coronary ──
+  if(proc==='stent'||proc==='stemi_stent'||proc==='closure'){
+    if(catheter){
+      catheter.setEnabled(true);
+      catheter.position=new BABYLON.Vector3(0.5,0.25,0.6);
+      catheter.rotation.z=Math.PI/2-0.38; catheter.rotation.y=0.1;
+    }
+    if(stentMesh){
+      stentMesh.setEnabled(true);
+      // Position on LAD territory — anterior surface of LV
+      stentMesh.position=new BABYLON.Vector3(0.22,0.15,0.72);
+      stentMesh.scaling=new BABYLON.Vector3(0.05,1,0.05); // start collapsed
+    }
+  }
+
+  // ── Thrombus aspiration catheter — larger bore, straight ──
+  if(proc==='aspiration'){
+    if(catheter){
+      catheter.setEnabled(true);
+      catheter.position=new BABYLON.Vector3(1.2,0.35,0.45);
+      catheter.rotation.z=Math.PI/2-0.28; catheter.rotation.y=0.05;
+      // Make catheter slightly thicker to represent aspiration catheter
+      catheter.scaling=new BABYLON.Vector3(1.4,1,1.4);
+    }
+  }
+
+  // ── Transseptal: ablation catheter enters LA via fossa ovalis (right side, angled left) ──
+  if(proc==='transseptal'||proc==='af_prep'){
+    if(ablationProbe){
+      ablationProbe.setEnabled(true);
+      // Enters from inferior right — subclavian/femoral vein → RA → transseptal
+      ablationProbe.position=new BABYLON.Vector3(1.8,0.2,-0.5);
+      ablationProbe.rotation.z=-(Math.PI/2-0.45);
+      ablationProbe.rotation.y=-0.35;
+    }
+  }
+
+  // ── RF ablation: probe tip tracing circle around left PV ostia ──
+  if(proc==='mapping'||proc==='ablation_left'){
+    if(ablationProbe){
+      ablationProbe.setEnabled(true);
+      // Positioned at left PV antrum — posterior-left of heart
+      ablationProbe.position=new BABYLON.Vector3(-0.9,0.6,-0.3);
+      ablationProbe.rotation.z=-(Math.PI/2-0.6);
+      ablationProbe.rotation.y=0.5;
+    }
+  }
+
+  // ── RF ablation: probe at right PV antrum — posterior-right ──
+  if(proc==='ablation_right'||proc==='ablation_done'){
+    if(ablationProbe){
+      ablationProbe.setEnabled(true);
+      ablationProbe.position=new BABYLON.Vector3(0.8,0.6,-0.35);
+      ablationProbe.rotation.z=-(Math.PI/2-0.55);
+      ablationProbe.rotation.y=-0.4;
+    }
+  }
+
+  // ── Sternotomy: retractors spread wide (show open chest) ──
+  if(proc==='sternotomy'||proc==='cpb'){
+    if(retractorL&&retractorR){
+      // Spread retractors wider to show chest open
+      BABYLON.Animation.CreateAndStartAnimation('retL',retractorL,'position.x',30,60,-1.65,-2.1,BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+      BABYLON.Animation.CreateAndStartAnimation('retR',retractorR,'position.x',30,60,1.65,2.1,BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+    }
+  }
+
+  // ── LIMA-LAD anastomosis: suture needle at LAD on anterior surface ──
+  if(proc==='lima_lad'){
+    if(needle){
+      needle.setEnabled(true);
+      // Suture needle at distal LAD — anterior surface mid-heart
+      needle.position=new BABYLON.Vector3(0.1,0.05,0.85);
+      needle.rotation.z=0.6; needle.rotation.y=-0.2; needle.rotation.x=0.4;
+    }
+    if(catheter){
+      // LIMA graft — long tube descending from left side
+      catheter.setEnabled(true);
+      catheter.position=new BABYLON.Vector3(-1.5,1.4,0.3);
+      catheter.rotation.z=0.35; catheter.rotation.y=-0.15;
+      const tip=bScene&&bScene.getMeshByName('catTip');
+      if(tip){tip.scaling=new BABYLON.Vector3(0.5,0.5,0.5);tip.material&&(tip.material.emissiveColor=new BABYLON.Color3(.05,.4,.05));}
+    }
+  }
+
+  // ── SVG grafts: multiple bypass conduits visible on aorta ──
+  if(proc==='svg_grafts'){
+    if(catheter){
+      catheter.setEnabled(true);
+      // SVG ascending to proximal aorta — slightly larger, pinkish
+      catheter.position=new BABYLON.Vector3(0.3,1.2,-0.2);
+      catheter.rotation.z=-0.2; catheter.rotation.y=0.1;
+      const catMat=bScene&&bScene.getMaterialByName('catMat');
+      if(catMat)catMat.albedoColor=new BABYLON.Color3(0.75,0.5,0.45);
+    }
+    if(stentMesh){
+      // Show a second SVG graft as the stent node re-purposed
+      stentMesh.setEnabled(true);
+      stentMesh.position=new BABYLON.Vector3(0.5,0.9,-0.1);
+      stentMesh.scaling=new BABYLON.Vector3(0.08,3.0,0.08);
+    }
+  }
+
+  // ── Reperfusion: cross-clamp removed, heart defibrillated ──
+  if(proc==='reperfusion'){
+    if(catheter){catheter.setEnabled(false);}
+    if(stentMesh){stentMesh.setEnabled(false);}
+    // No tools — show heart coming back
+  }
+
+  // ── Chest closure ──
+  if(proc==='chest_close'){
+    if(retractorL&&retractorR){
+      BABYLON.Animation.CreateAndStartAnimation('retLc',retractorL,'position.x',30,60,-2.1,-1.65,BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+      BABYLON.Animation.CreateAndStartAnimation('retRc',retractorR,'position.x',30,60,2.1,1.65,BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+    }
+    // Sternal wire suture needle
+    if(needle){
+      needle.setEnabled(true);
+      needle.position=new BABYLON.Vector3(0,-1.5,0.2);
+      needle.rotation.z=0; needle.rotation.y=0; needle.rotation.x=0;
+    }
+  }
+
+  // CCU / post-procedure: all tools away
+  if(proc==='idle'||proc==='stemi_ccu'){
+    [catheter,stentMesh,ablationProbe,needle].forEach(t=>{if(t)t.setEnabled(false);});
+    if(catheter)catheter.scaling=new BABYLON.Vector3(1,1,1);
+  }
+}
+
+function setLoaderTxt(t){ document.getElementById('loaderTxt').textContent=t; }
+function hideLoader(){
+  const l=document.getElementById('loader');
+  l.classList.add('gone');
+  setTimeout(()=>l.style.display='none',700);
+}
+
+// ─── VIEW SWITCH ───
+function setView(v){
+  currentView=v;
+  document.getElementById('vbBeat').className='vbtn'+(v==='beat'?' active':'');
+  document.getElementById('vbAnat').className='vbtn'+(v==='anatomy'?' active':'');
+  const lbls=['aLA','aRA','aLV','aRV','aAO','aPA'];
+  lbls.forEach(id=>document.getElementById(id).className='ana-lbl'+(v==='anatomy'?' show':''));
+  if(heartBeat)heartBeat.setEnabled(v==='beat');
+  if(heartAnat&&heartAnat!==heartBeat)heartAnat.setEnabled(v==='anatomy');
+}
+
+// ─── SIM CONTROLS ───
+function toggleBeat(){
+  beatOn=!beatOn;
+  const b=document.getElementById('cBeat');
+  b.textContent=beatOn?'❤ Beat ON':'❤ Beat OFF';
+  b.className='cbtn '+(beatOn?'on':'on-red');
+}
+function toggleRotate(){
+  rotateOn=!rotateOn;
+  const b=document.getElementById('cRotate'); b.className='cbtn '+(rotateOn?'on-blue':'');
+  if(window._bCam)window._bCam.useAutoRotationBehavior=rotateOn;
+}
+function toggleWire(){
+  wireOn=!wireOn;
+  [...beatMeshes,...anatMeshes].forEach(m=>{
+    if(!m.material)return;
+    if(!m._mc){m.material=m.material.clone(m.material.name+'_c');m._mc=true;}
+    m.material.wireframe=wireOn;
+  });
+  document.getElementById('cWire').className='cbtn '+(wireOn?'on-blue':'');
+}
+function toggleXray(){
+  xrayOn=!xrayOn;
+  [...beatMeshes,...anatMeshes].forEach(m=>{
+    if(!m.material)return;
+    if(!m._mc){m.material=m.material.clone(m.material.name+'_c');m._mc=true;}
+    m.material.alpha=xrayOn?.28:1;
+    m.material.backFaceCulling=!xrayOn;
+    if(xrayOn)m.material.transparencyMode=BABYLON.PBRMaterial.PBRMATERIAL_ALPHABLEND;
+  });
+  document.getElementById('cXray').className='cbtn '+(xrayOn?'on-blue':'');
+}
+function toggleGlow(){
+  glowOn=!glowOn;
+  if(glowLayer)glowLayer.intensity=glowOn?.7:0;
+  document.getElementById('cGlow').className='cbtn '+(glowOn?'on':'');
+}
+
+// ════════════════════════════════════════
+//  RENDER LOOP — full surgical animation
+// ════════════════════════════════════════
+function renderLoop(){
+  animT+=.016; toolT+=.016;
+
+  // Beat speed lerp
+  beatSpd+=(targetBeatSpd-beatSpd)*.04;
+  if(beatOn) beatPh+=(ecgRate/60)*beatSpd*.016;
+  const bm=beatPh%1;
+  let sc=0;
+  if(bm<.08)sc=.13*Math.sin(bm/.08*Math.PI);
+  else if(bm<.16)sc=.09*Math.sin((bm-.08)/.08*Math.PI);
+  const hs=1+sc;
+
+  // Heart scale + bob
+  const activeH=currentView==='anatomy'&&heartAnat?heartAnat:heartBeat;
+  if(activeH){
+    const base=currentView==='anatomy'?anatBaseScale:beatBaseScale;
+    const cy=currentView==='anatomy'?anatCenterY:beatCenterY;
+    const s=base*hs;
+    activeH.scaling=new BABYLON.Vector3(s,s,s);
+    activeH.position.y=cy+Math.sin(animT*.18)*.035;
+  }
+
+  // Pulsing point light
+  if(window._ptLight){
+    window._ptLight.intensity=3.0+sc*9;
+    window._ptLight.diffuse=new BABYLON.Color3(1,.06+sc*.25,.04+sc*.12);
+  }
+
+  // OR surgical lights subtle flicker (authentic OR feel)
+  if(surgicalLight1){
+    const flk=1+Math.sin(animT*47)*0.008+Math.sin(animT*83)*0.005;
+    surgicalLight1.intensity=220*flk; surgicalLight2.intensity=200*flk;
+  }
+
+  // Emissive pulse on heart
+  if(beatOn){
+    beatMeshes.forEach(m=>{
+      if(m.material&&!wireOn&&!xrayOn&&m.material.emissiveColor)
+        m.material.emissiveColor=new BABYLON.Color3(.24+sc*.95,.018,.018);
+    });
+  }
+  if(glowLayer)glowLayer.intensity=glowOn?(.5+sc*.9):.0;
+
+  // ── Per-procedure tool animation — anatomically correct ──
+
+  // GUIDEWIRE NAVIGATION: catheter advances steadily toward coronary ostium
+  if((procedureMode==='angio'||procedureMode==='stenosis')&&catheter&&catheter.isEnabled()){
+    catheter.position.x=BABYLON.Scalar.Lerp(catheter.position.x,1.2,.006);
+    // Realistic guidewire navigation — rotate/wiggle as it tracks coronary curve
+    catheter.rotation.y=Math.sin(toolT*0.8)*0.12;
+    catheter.rotation.z=(Math.PI/2-0.12)+Math.sin(toolT*1.6)*0.04;
+  }
+
+  // WIRE CROSSING: wire pushes through tight stenosis — micro jitter as it crosses
+  if(procedureMode==='wire'&&catheter&&catheter.isEnabled()){
+    catheter.position.x=BABYLON.Scalar.Lerp(catheter.position.x,0.7,.009);
+    // Jitter represents crossing resistance
+    catheter.rotation.y=Math.sin(toolT*4.5)*0.035;
+    catheter.rotation.z=(Math.PI/2-0.25)+Math.sin(toolT*6)*0.02;
+  }
+
+  // STEMI ACCESS: fast advance — emergency, less finesse
+  if((procedureMode==='stemi_access'||procedureMode==='stemi_arrival')&&catheter&&catheter.isEnabled()){
+    catheter.position.x=BABYLON.Scalar.Lerp(catheter.position.x,1.0,.012);
+    catheter.rotation.y=Math.sin(toolT*1.2)*0.08;
+  }
+
+  // STEMI WIRE: wire through total occlusion — more resistance, more jitter
+  if(procedureMode==='stemi_wire'&&catheter&&catheter.isEnabled()){
+    catheter.position.x=BABYLON.Scalar.Lerp(catheter.position.x,0.6,.007);
+    catheter.rotation.y=Math.sin(toolT*7)*0.05;
+    catheter.rotation.z=(Math.PI/2-0.2)+Math.sin(toolT*9)*0.025;
+  }
+
+  // BALLOON INFLATION: tip sphere grows to simulate balloon expanding at stenosis
+  if(procedureMode==='balloon'&&catheter&&catheter.isEnabled()){
+    catheter.position.x=BABYLON.Scalar.Lerp(catheter.position.x,0.6,.012);
+    const tipSph=bScene.getMeshByName('catTip');
+    if(tipSph){
+      // Balloon inflates from 1x to 3.5x radially (simulates 8→20 atm inflation)
+      const inflPct=Math.min(toolT/6,1);
+      const inflR=BABYLON.Scalar.Lerp(1,3.5,inflPct);
+      const inflH=BABYLON.Scalar.Lerp(1,1.8,inflPct);
+      tipSph.scaling=new BABYLON.Vector3(inflR,inflH,inflR);
+      // Tip pulses red during inflation (ischaemia marker)
+      if(tipSph.material)tipSph.material.emissiveColor=new BABYLON.Color3(
+        0.8+Math.sin(toolT*3)*0.2, 0.05, 0.05);
+      if(glowLayer)glowLayer.addIncludedOnlyMesh(tipSph);
+    }
+  }
+
+  // STENT DEPLOYMENT: stent expands from collapsed (0.05x) to full scaffold (1x)
+  if((procedureMode==='stent'||procedureMode==='stemi_stent')&&stentMesh&&stentMesh.isEnabled()){
+    if(!stentDeployed){
+      const expPct=Math.min(toolT/4,1); // 4 second expansion
+      const expR=BABYLON.Scalar.Lerp(0.05,1.0,expPct);
+      stentMesh.scaling=new BABYLON.Vector3(expR,1,expR);
+      if(expPct>=0.99){stentDeployed=true;}
+    }
+    // After deployment: very slow rotation to show metal scaffold — like fluoroscopy
+    if(stentDeployed){stentMesh.rotation.y+=0.006;}
+    // Stent glow: metallic shimmer
+    if(glowLayer){
+      const c=bScene.getMeshByName('sb0');
+      if(c)glowLayer.addIncludedOnlyMesh(c);
+    }
+  }
+
+  // ASPIRATION: catheter advances then retreats in passes
+  if(procedureMode==='aspiration'&&catheter&&catheter.isEnabled()){
+    // 3 passes: advance → retract → advance → retract...
+    const passT=toolT%4; // 4s per pass
+    const inPass=passT<2;
+    const targetX=inPass?0.4:1.2;
+    catheter.position.x=BABYLON.Scalar.Lerp(catheter.position.x,targetX,.025);
+    catheter.rotation.y=Math.sin(toolT*0.5)*0.04;
+  }
+
+  // TRANSSEPTAL: probe advances from RA toward fossa ovalis (right→left)
+  if(procedureMode==='transseptal'&&ablationProbe&&ablationProbe.isEnabled()){
+    ablationProbe.position.x=BABYLON.Scalar.Lerp(ablationProbe.position.x,0.4,.007);
+    ablationProbe.position.y=BABYLON.Scalar.Lerp(ablationProbe.position.y,0.15,.006);
+    // Tenting motion at fossa ovalis
+    ablationProbe.rotation.y=-0.35+Math.sin(toolT*0.4)*0.08;
+  }
+
+  // ELECTROANATOMIC MAPPING: probe traces slow arc around LA — building the 3D map
+  if(procedureMode==='mapping'&&ablationProbe&&ablationProbe.isEnabled()){
+    // Probe orbits slowly around LA posterior wall
+    const mapAngle=toolT*0.3;
+    ablationProbe.position.x=Math.cos(mapAngle)*1.1-0.2;
+    ablationProbe.position.z=Math.sin(mapAngle)*0.6-0.35;
+    ablationProbe.position.y=0.5+Math.sin(toolT*0.6)*0.1;
+    ablationProbe.rotation.y=mapAngle+Math.PI/2;
+  }
+
+  // RF ABLATION LEFT PVs: probe traces lesion circle around LSPV+LIPV antrum
+  if(procedureMode==='ablation_left'&&ablationProbe&&ablationProbe.isEnabled()){
+    // Steady circular ablation path around left PV antrum
+    const ablAngle=toolT*0.22; // slow — each lesion held 30–40s
+    ablationProbe.position.x=-0.9+Math.cos(ablAngle)*0.18;
+    ablationProbe.position.z=-0.3+Math.sin(ablAngle)*0.22;
+    ablationProbe.position.y=0.6+Math.cos(ablAngle*1.3)*0.05;
+    // RF energy: probe tip glows orange-red, smoke and sparks
+    const ablT2=bScene.getMeshByName('ablTip');
+    if(ablT2&&ablT2.material){
+      const pulse=0.85+Math.sin(toolT*9)*0.3;
+      ablT2.material.emissiveColor=new BABYLON.Color3(pulse,pulse*0.42,pulse*0.03);
+    }
+    if(smokePS)smokePS.emitRate=Math.min(toolT/3*28,28);
+    if(sparkPS)sparkPS.emitRate=14+Math.sin(toolT*6)*10;
+    ablationActive=true;
+  }
+
+  // RF ABLATION RIGHT PVs
+  if(procedureMode==='ablation_right'&&ablationProbe&&ablationProbe.isEnabled()){
+    const ablAngle=toolT*0.22;
+    ablationProbe.position.x=0.8+Math.cos(ablAngle)*0.16;
+    ablationProbe.position.z=-0.35+Math.sin(ablAngle)*0.2;
+    ablationProbe.position.y=0.6+Math.cos(ablAngle*1.2)*0.04;
+    const ablT2=bScene.getMeshByName('ablTip');
+    if(ablT2&&ablT2.material){
+      const pulse=0.85+Math.sin(toolT*9)*0.3;
+      ablT2.material.emissiveColor=new BABYLON.Color3(pulse,pulse*0.42,pulse*0.03);
+    }
+    if(smokePS)smokePS.emitRate=Math.min(toolT/3*22,22);
+    if(sparkPS)sparkPS.emitRate=10+Math.sin(toolT*5)*8;
+    ablationActive=true;
+  }
+
+  // Fade smoke/sparks when ablation stops
+  if(!['ablation_left','ablation_right'].includes(procedureMode)&&ablationActive){
+    if(smokePS)smokePS.emitRate=Math.max(smokePS.emitRate-1,0);
+    if(sparkPS)sparkPS.emitRate=0;
+    if(smokePS&&smokePS.emitRate===0)ablationActive=false;
+  }
+
+  // LIMA-LAD: suture needle oscillates — simulates running suture placement
+  if(procedureMode==='lima_lad'&&needle&&needle.isEnabled()){
+    // Needle bobs in and out — each stitch
+    const stitchT=toolT%1.5;
+    const stitchZ=stitchT<0.75?
+      BABYLON.Scalar.Lerp(0.85,0.70,(stitchT/0.75)):
+      BABYLON.Scalar.Lerp(0.70,0.85,((stitchT-0.75)/0.75));
+    needle.position.z=stitchZ;
+    needle.rotation.z=0.6+Math.sin(toolT*4)*0.15;
+    // LIMA graft catheter drapes naturally — rotates with heartbeat
+    if(catheter&&catheter.isEnabled()){
+      catheter.rotation.z=0.35+Math.sin(animT*0.4)*0.02;
+    }
+  }
+
+  // SVG GRAFTS: multiple conduits gently move with heartbeat
+  if(procedureMode==='svg_grafts'){
+    if(catheter&&catheter.isEnabled()){
+      catheter.position.y=1.2+Math.sin(animT*0.3)*0.02;
+      catheter.rotation.z=-0.2+Math.sin(animT*0.4)*0.01;
+    }
+    if(stentMesh&&stentMesh.isEnabled()){
+      stentMesh.position.y=0.9+Math.sin(animT*0.3+0.5)*0.02;
+    }
+  }
+
+  // REPERFUSION: heart comes back — vigorous beat, scale oscillation + glow surge
+  if(procedureMode==='reperfusion'){
+    if(glowLayer)glowLayer.intensity=glowOn?(0.6+sc*1.5):0;
+  }
+
+  // CPB: heart is still — no beat animation, dim glow
+  if(procedureMode==='cpb'){
+    if(glowLayer)glowLayer.intensity=glowOn?0.1:0;
+  }
+
+  // Blood droplets
+  if(bloodPS){
+    const isProcedure=['angio','wire','balloon','stent','aspiration','lima_lad','svg_grafts','reperfusion'].includes(procedureMode);
+    const target=isProcedure?(30+sc*50):8;
+    bloodPS.emitRate=BABYLON.Scalar.Lerp(bloodPS.emitRate,target,.05);
+  }
+
+  if(stentMesh&&stentMesh.isEnabled()&&procedureMode==='closure'){
+    stentMesh.rotation.y+=.004;
+  }
+
+  if(window._ps)window._ps.emitRate=10+ecgRate/4;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+renderTabs();
+applyStage(0);
+
+// Guard: wait for BABYLON to be available (CDN may load async)
+function safeBabylonInit(){
+  if(typeof BABYLON !== 'undefined'){
+    initBabylon();
+  } else {
+    console.warn('Babylon.js not yet loaded — retrying in 200ms…');
+    setTimeout(safeBabylonInit, 200);
+  }
+}
+safeBabylonInit();
+</script>
+</body>
+</html>

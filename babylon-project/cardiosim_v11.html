@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CardioSim v8 — Cardiac Simulation Platform</title>
+<script src="https://unpkg.com/babylonjs@6.44.0/babylon.js"></script>
+<script src="https://unpkg.com/babylonjs-loaders@6.44.0/babylonjs.loaders.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06080e;--panel:#0a0d16;--panel2:#0e1220;--border:#161d2e;--border2:#1e2a42;
+  --red:#e84040;--red2:#ff5a5a;--green:#2ecc71;--green2:#52e892;
+  --blue:#3b9eff;--blue2:#6dbfff;--yellow:#f0a500;--yellow2:#ffc030;
+  --purple:#a855f7;--cyan:#06b6d4;--orange:#f97316;
+  --text:#e2eaf8;--muted:#3a4a68;--muted2:#6b7fa8;--card:#08101c;
+  --glow-red:rgba(232,64,64,.18);--glow-green:rgba(46,204,113,.15);--glow-blue:rgba(59,158,255,.15);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text)}
+body{font-family:'Syne',sans-serif}
+body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px)}
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(59,158,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(59,158,255,.03) 1px,transparent 1px);
+  background-size:48px 48px}
+.shell{display:grid;grid-template-columns:294px 1fr 278px;height:100vh;position:relative;z-index:1}
+
+/* ═══ SIDEBAR ═══ */
+.sidebar{background:linear-gradient(180deg,var(--panel) 0%,rgba(6,8,14,.98) 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;box-shadow:inset -1px 0 0 rgba(59,158,255,.06)}
+.sb-header{padding:14px 14px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;flex-shrink:0;background:linear-gradient(135deg,rgba(232,64,64,.06),transparent)}
+.heart-logo svg{width:26px;height:26px;overflow:visible;flex-shrink:0}
+.heart-path{fill:none;stroke:var(--red2);stroke-width:1.8;stroke-linejoin:round;filter:drop-shadow(0 0 6px var(--red));animation:logopulse 1.1s ease-in-out infinite}
+@keyframes logopulse{0%,100%{stroke:var(--red2);filter:drop-shadow(0 0 5px var(--red))}40%{stroke:#ff8080;filter:drop-shadow(0 0 12px var(--red2))}}
+.sb-brand{flex:1}
+.sb-title{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--text);letter-spacing:.08em;line-height:1}
+.sb-sub{font-size:9px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:2px;letter-spacing:.06em}
+.ver-badge{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--blue);background:rgba(59,158,255,.1);border:1px solid rgba(59,158,255,.25);padding:2px 7px;border-radius:4px}
+.dis-bar{padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.dis-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.14em;margin-bottom:6px}
+.dis-tabs{display:flex;flex-wrap:wrap;gap:3px}
+.dtab{padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-size:9px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .15s}
+.dtab:hover{border-color:var(--border2);color:var(--text);background:var(--panel2)}
+.dtab.active{background:rgba(59,158,255,.12);border-color:rgba(59,158,255,.4);color:var(--blue2)}
+.vitals{padding:8px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:5px;flex-shrink:0}
+.vcard{background:var(--card);border-radius:5px;padding:7px 9px;border:1px solid var(--border);position:relative;overflow:hidden;transition:border-color .3s}
+.vcard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;border-radius:0 0 5px 5px;transition:background .3s}
+.vcard.vc-green::after{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.vcard.vc-red::after{background:linear-gradient(90deg,transparent,var(--red),transparent)}
+.vcard.vc-yellow::after{background:linear-gradient(90deg,transparent,var(--yellow),transparent)}
+.vcard.vc-blue::after{background:linear-gradient(90deg,transparent,var(--blue),transparent)}
+.vcard.vc-cyan::after{background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+.vcard.vc-green{border-color:rgba(46,204,113,.2)}.vcard.vc-red{border-color:rgba(232,64,64,.3);background:rgba(20,8,8,.8)}.vcard.vc-blue{border-color:rgba(59,158,255,.2)}
+.v-lbl{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--muted2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px}
+.v-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;line-height:1;transition:color .35s}
+.v-unit{font-size:8px;color:var(--muted2);margin-top:1px;font-family:'JetBrains Mono',monospace}
+.vg{color:var(--green)}.vy{color:var(--yellow)}.vr{color:var(--red)}.vb{color:var(--blue)}.vc{color:var(--cyan)}.vp{color:var(--purple)}
+.ecg-wrap{padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ecg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.ecg-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.12em}
+.ecg-badge{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--border);background:var(--card);color:var(--muted2);transition:all .3s}
+#ecgCanvas{width:100%;height:48px;display:block;border-radius:4px}
+.stages-wrap{padding:8px 12px;overflow-y:auto;flex:1;min-height:0;border-bottom:1px solid var(--border)}
+.sec-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.14em;margin-bottom:6px}
+.stg-btn{width:100%;text-align:left;padding:6px 9px;margin-bottom:2px;border-radius:4px;border:1px solid transparent;background:transparent;color:var(--muted2);font-size:10.5px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all .15s;font-family:'Syne',sans-serif}
+.stg-btn:hover{background:var(--panel2);color:var(--text);border-color:var(--border)}
+.stg-btn.active{background:rgba(59,158,255,.08);border-color:rgba(59,158,255,.35);color:var(--blue2)}
+.stg-btn.done{color:var(--green);border-color:rgba(46,204,113,.15)}
+.stg-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:all .3s}
+.stg-btn.active .stg-dot{background:var(--blue);box-shadow:0 0 6px var(--blue)}
+.stg-btn.done .stg-dot{background:var(--green);box-shadow:0 0 4px var(--green)}
+.stg-badge{font-size:8.5px;padding:1px 5px;border-radius:8px;background:var(--card);color:var(--muted2);margin-left:auto;font-family:'JetBrains Mono',monospace;border:1px solid var(--border);white-space:nowrap}
+.stg-btn.active .stg-badge{background:rgba(59,158,255,.15);color:var(--blue2);border-color:rgba(59,158,255,.3)}
+.stg-btn.done .stg-badge{background:rgba(46,204,113,.1);color:var(--green);border-color:rgba(46,204,113,.25)}
+.risk-wrap{padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.risk-track{height:4px;background:var(--card);border-radius:2px;overflow:hidden;margin:5px 0 4px}
+.risk-fill{height:100%;border-radius:2px;transition:width .7s cubic-bezier(.4,0,.2,1),background .5s}
+.risk-row{display:flex;justify-content:space-between;align-items:center}
+.risk-num{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;transition:color .4s}
+.risk-tag{font-family:'JetBrains Mono',monospace;font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid;font-weight:500}
+.pacer{display:none;margin:0 12px 5px;padding:7px 10px;border-radius:4px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.3);align-items:center;gap:8px;flex-shrink:0}
+.pacer.show{display:flex}
+.pacer-dot{width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0;animation:pacepulse .9s ease-in-out infinite;box-shadow:0 0 8px var(--purple)}
+@keyframes pacepulse{0%,100%{opacity:1}50%{opacity:.2}}
+.pacer-txt{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)}
+.alert-bar{display:none;margin:0 12px 4px;padding:6px 9px;border-radius:4px;align-items:center;gap:6px;font-size:10px;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.alert-bar.show{display:flex}
+.ac{background:rgba(232,64,64,.1);border:1px solid rgba(232,64,64,.35);color:var(--red2)}
+.aw{background:rgba(240,165,0,.08);border:1px solid rgba(240,165,0,.3);color:var(--yellow2)}
+.ai{background:rgba(59,158,255,.08);border:1px solid rgba(59,158,255,.25);color:var(--blue2)}
+.alert-icon{font-size:12px;flex-shrink:0}
+.sb-footer{padding:9px 12px;border-top:1px solid var(--border);display:flex;gap:6px;flex-shrink:0}
+.btn-p{flex:1;padding:8px;border-radius:5px;background:linear-gradient(135deg,rgba(59,158,255,.2),rgba(59,158,255,.1));border:1px solid rgba(59,158,255,.35);color:var(--blue2);font-size:11px;font-weight:600;cursor:pointer;font-family:'Syne',sans-serif;transition:all .15s;letter-spacing:.03em}
+.btn-p:hover{background:linear-gradient(135deg,rgba(59,158,255,.3),rgba(59,158,255,.18));border-color:var(--blue)}
+.btn-s{padding:8px 12px;border-radius:5px;background:transparent;border:1px solid var(--border);color:var(--muted2);font-size:11px;cursor:pointer;font-family:'Syne',sans-serif;transition:all .15s}
+.btn-s:hover{background:var(--panel2);color:var(--text);border-color:var(--border2)}
+
+/* ═══ VIEWPORT ═══ */
+.viewport{background:var(--bg);display:flex;flex-direction:column;position:relative;overflow:hidden}
+.vp-bar{position:absolute;top:0;left:0;right:0;z-index:20;padding:10px 14px;display:flex;align-items:center;gap:9px;background:linear-gradient(180deg,rgba(6,8,14,.95) 0%,transparent 100%);border-bottom:1px solid rgba(22,29,46,.6)}
+.vp-title{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.12em;flex:1}
+.view-btns{display:flex;background:var(--card);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.vbtn{padding:5px 11px;border:none;background:transparent;color:var(--muted2);font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .15s;letter-spacing:.04em}
+.vbtn+.vbtn{border-left:1px solid var(--border)}
+.vbtn:hover{color:var(--text)}.vbtn.active{background:rgba(59,158,255,.15);color:var(--blue2)}
+.live-pill{display:flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--green);padding:4px 8px;border-radius:10px;background:rgba(46,204,113,.08);border:1px solid rgba(46,204,113,.25)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:ldot 1.2s step-end infinite}
+@keyframes ldot{0%,100%{opacity:1}50%{opacity:0}}
+/* ── Procedure phase overlay ── */
+#phaseOverlay{position:absolute;top:50px;left:50%;transform:translateX(-50%);z-index:25;
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;
+  padding:5px 16px;border-radius:14px;border:1px solid;pointer-events:none;
+  opacity:0;transition:opacity .4s;white-space:nowrap}
+#phaseOverlay.show{opacity:1}
+.ph-cath{background:rgba(59,158,255,.1);border-color:rgba(59,158,255,.4);color:var(--blue2)}
+.ph-abl{background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.4);color:var(--orange)}
+.ph-pac{background:rgba(168,85,247,.1);border-color:rgba(168,85,247,.4);color:var(--purple)}
+.ph-nee{background:rgba(46,204,113,.1);border-color:rgba(46,204,113,.4);color:var(--green2)}
+.ph-crit{background:rgba(232,64,64,.1);border-color:rgba(232,64,64,.4);color:var(--red2)}
+#renderCanvas{width:100%;height:100%;display:block;touch-action:none;outline:none}
+.loader{position:absolute;inset:0;z-index:15;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg);transition:opacity .6s}
+.loader.gone{opacity:0;pointer-events:none}
+.loader-ring{width:44px;height:44px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--red);animation:spin .75s linear infinite;box-shadow:0 0 12px var(--glow-red)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-txt{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2);letter-spacing:.08em}
+.loader-sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.06em}
+.hud{position:absolute;bottom:0;left:0;right:0;z-index:10;padding:9px 14px 11px;background:linear-gradient(0deg,rgba(6,8,14,.96) 60%,transparent 100%)}
+.hud-chips{display:flex;gap:6px;flex-wrap:wrap}
+.hchip{background:rgba(10,16,28,.9);border:1px solid var(--border);border-radius:4px;padding:4px 11px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2);backdrop-filter:blur(4px);transition:border-color .3s}
+.hchip span{font-weight:600}
+.hchip.ok span{color:var(--green)}.hchip.warn span{color:var(--yellow)}.hchip.crit span{color:var(--red2)}
+.ana-lbl{position:absolute;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);background:rgba(6,8,14,.85);border:1px solid var(--border);padding:3px 8px;border-radius:3px;pointer-events:none;opacity:0;transition:opacity .4s;letter-spacing:.06em;backdrop-filter:blur(6px);white-space:nowrap}
+.ana-lbl.show{opacity:1}
+
+/* ═══ RIGHT PANEL ═══ */
+.rpanel{background:linear-gradient(180deg,var(--panel) 0%,rgba(6,8,14,.98) 100%);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;box-shadow:inset 1px 0 0 rgba(59,158,255,.04)}
+.rp-head{padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.rp-sup{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.14em;margin-bottom:4px}
+.rp-module{font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:var(--text)}
+.ctrl-sect{padding:9px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.ctrl-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px}
+.ctrl-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:5px}
+.cbtn{padding:6px 7px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted2);font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .15s;text-align:center}
+.cbtn:hover{background:var(--panel2);color:var(--text);border-color:var(--border2)}
+.cbtn.on{background:rgba(46,204,113,.08);border-color:rgba(46,204,113,.3);color:var(--green)}
+.cbtn.on-red{background:rgba(232,64,64,.08);border-color:rgba(232,64,64,.3);color:var(--red2)}
+.cbtn.on-blue{background:rgba(59,158,255,.08);border-color:rgba(59,158,255,.3);color:var(--blue2)}
+.hr-sect{padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.hr-row{display:flex;align-items:center;gap:7px;margin-top:5px}
+.slider{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--blue) calc(var(--pct,42%)),var(--border) calc(var(--pct,42%)));outline:none;cursor:pointer}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--blue);border:2px solid var(--bg);box-shadow:0 0 8px var(--blue);cursor:pointer}
+.notes-sect{padding:10px 12px;flex:1;overflow-y:auto;min-height:0}
+.notes-body{font-size:11.5px;color:var(--muted2);line-height:1.8;font-family:'Syne',sans-serif}
+.notes-body b{color:var(--text);font-weight:600}
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:9px;padding:1px 7px;border-radius:8px;margin:1px 2px;vertical-align:middle;border:1px solid}
+.pr{background:rgba(232,64,64,.1);color:var(--red2);border-color:rgba(232,64,64,.3)}
+.pg{background:rgba(46,204,113,.08);color:var(--green2);border-color:rgba(46,204,113,.25)}
+.pb{background:rgba(59,158,255,.08);color:var(--blue2);border-color:rgba(59,158,255,.25)}
+.py{background:rgba(240,165,0,.08);color:var(--yellow2);border-color:rgba(240,165,0,.25)}
+.pp{background:rgba(168,85,247,.08);color:#d8aaff;border-color:rgba(168,85,247,.25)}
+.pc{background:rgba(6,182,212,.08);color:var(--cyan);border-color:rgba(6,182,212,.25)}
+.po{background:rgba(249,115,22,.08);color:var(--orange);border-color:rgba(249,115,22,.25)}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ═══ ML PANEL — simplified ═══ */
+.ml-panel{position:fixed;bottom:0;left:294px;right:278px;z-index:50;transform:translateY(100%);transition:transform .45s cubic-bezier(.4,0,.2,1);background:rgba(8,12,22,.98);border-top:1px solid var(--border2);box-shadow:0 -6px 30px rgba(0,0,0,.6)}
+.ml-panel.open{transform:translateY(0)}
+.ml-toggle{position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:51;background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.4);border-bottom:none;border-radius:8px 8px 0 0;padding:5px 18px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);cursor:pointer;letter-spacing:.06em;transition:background .2s;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.ml-toggle:hover{background:rgba(168,85,247,.28)}
+.ml-toggle-dot{width:6px;height:6px;border-radius:50%;background:var(--purple);animation:mlpulse 1.8s ease-in-out infinite;box-shadow:0 0 8px var(--purple)}
+@keyframes mlpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+/* simple 2-col layout */
+.ml-inner{padding:14px 18px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-height:320px}
+.ml-col{display:flex;flex-direction:column;gap:8px}
+.ml-section-title{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--muted2);text-transform:uppercase;letter-spacing:.14em;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.ml-card{background:var(--card);border:1px solid var(--border);border-radius:5px;padding:9px 11px}
+.ml-big-score{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700;line-height:1;transition:color .4s}
+.ml-score-lbl{font-size:8px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.ml-conf-bar-wrap{margin-top:6px}
+.ml-conf-bar-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.ml-conf-bar-fill{height:100%;border-radius:2px;transition:width .8s ease}
+.ml-conf-txt{font-size:8px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:3px}
+.ml-bars{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.ml-bar-row{display:flex;align-items:center;gap:6px}
+.ml-bar-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);width:58px;flex-shrink:0}
+.ml-bar-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.ml-bar-fill{height:100%;border-radius:3px;transition:width .9s cubic-bezier(.4,0,.2,1)}
+.ml-bar-val{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text);width:26px;text-align:right;flex-shrink:0}
+.ml-rhythm-name{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;margin-top:6px;transition:color .3s}
+.ml-rhythm-sub{font-size:8px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.ml-run-btn{width:100%;padding:8px;background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.35);border-radius:5px;color:var(--purple);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;transition:background .2s;display:flex;align-items:center;justify-content:center;gap:7px}
+.ml-run-btn:hover:not(:disabled){background:rgba(168,85,247,.25)}
+.ml-run-btn:disabled{opacity:.4;cursor:not-allowed}
+.ml-spinner{width:10px;height:10px;border-radius:50%;border:1.5px solid rgba(168,85,247,.3);border-top-color:var(--purple);animation:spin .6s linear infinite;display:none}
+.ml-run-btn.loading .ml-spinner{display:block}
+.ml-run-btn.loading .ml-btn-txt{display:none}
+.ai-output{background:var(--card);border:1px solid var(--border);border-radius:5px;padding:10px 12px;font-family:'Syne',sans-serif;font-size:11px;color:var(--muted2);line-height:1.7;min-height:70px;max-height:170px;overflow-y:auto}
+.ai-output.has-content{color:var(--text)}
+.ai-output .ai-cursor{display:inline-block;width:2px;height:12px;background:var(--purple);animation:blink .8s step-end infinite;vertical-align:middle}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.ai-placeholder{color:var(--muted);font-style:italic;font-size:10px}
+.conf-row{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.conf-chip{font-family:'JetBrains Mono',monospace;font-size:8px;padding:2px 7px;border-radius:8px;border:1px solid}
+.feature-imp{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.feat-row{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--muted2)}
+.feat-lbl{width:70px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feat-bar-t{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.feat-bar-f{height:100%;border-radius:2px;transition:width .8s ease,background .4s}
+.feat-pct{width:26px;text-align:right;flex-shrink:0}
+.ml-badge{font-family:'JetBrains Mono',monospace;font-size:8px;padding:1px 5px;border-radius:6px;border:1px solid rgba(168,85,247,.3);background:rgba(168,85,247,.08);color:var(--purple);vertical-align:middle}
+
+/* ═══ HEART MAP OVERLAY ═══ */
+.hmap-overlay{position:fixed;inset:0;z-index:200;background:rgba(4,6,12,.92);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+.hmap-overlay.open{opacity:1;pointer-events:all}
+.hmap-box{background:var(--panel);border:1px solid var(--border2);border-radius:10px;width:860px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.8)}
+.hmap-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.hmap-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:600;color:var(--text);flex:1}
+.hmap-sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);margin-top:2px}
+.hmap-close{width:28px;height:28px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.hmap-close:hover{background:rgba(232,64,64,.1);border-color:rgba(232,64,64,.3);color:var(--red2)}
+.hmap-body{display:grid;grid-template-columns:1fr 340px;flex:1;min-height:0;overflow:hidden}
+.hmap-svg-wrap{position:relative;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(ellipse at center,rgba(59,158,255,.04) 0%,transparent 70%)}
+.hmap-info{padding:16px;border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.hmap-disease-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text)}
+.hmap-region-list{display:flex;flex-direction:column;gap:7px}
+.hmap-region-item{padding:9px 11px;border-radius:5px;border:1px solid var(--border);background:var(--card)}
+.hmap-region-name{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--text);margin-bottom:3px;display:flex;align-items:center;gap:6px}
+.hmap-region-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.hmap-region-desc{font-size:10.5px;color:var(--muted2);line-height:1.6;font-family:'Syne',sans-serif}
+.hmap-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.hmap-legend-item{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--muted2)}
+.hmap-legend-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+/* SVG heart region highlights */
+.hr-region{transition:opacity .4s,filter .4s;cursor:default}
+.hr-region.active{animation:regionpulse 2s ease-in-out infinite}
+@keyframes regionpulse{0%,100%{opacity:.7}50%{opacity:1}}
+.hr-label{font-family:'JetBrains Mono',monospace;font-size:7.5px;fill:rgba(226,234,248,.7);pointer-events:none}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- LEFT SIDEBAR -->
+<div class="sidebar">
+  <div class="sb-header">
+    <svg viewBox="0 0 28 28" class="heart-logo" style="width:26px;height:26px;flex-shrink:0"><path class="heart-path" d="M14 23C14 23 3 15 3 9C3 5.8 5.5 3 9 3C11.2 3 13 4.5 14 6.2C15 4.5 16.8 3 19 3C22.5 3 25 5.8 25 9C25 15 14 23 14 23Z"/></svg>
+    <div class="sb-brand">
+      <div class="sb-title">CARDIOSIM</div>
+      <div class="sb-sub">CARDIAC SIMULATION PLATFORM</div>
+    </div>
+    <div class="ver-badge">v8.0</div>
+  </div>
+  <div class="dis-bar">
+    <div class="dis-lbl">Disease Module</div>
+    <div class="dis-tabs" id="disTabs"></div>
+  </div>
+  <div class="vitals">
+    <div class="vcard vc-green" id="vc-hr"><div class="v-lbl">Heart Rate</div><div class="v-val vg" id="vHR">72</div><div class="v-unit">bpm</div></div>
+    <div class="vcard vc-blue" id="vc-bp"><div class="v-lbl">BP (Sys)</div><div class="v-val vb" id="vBP">120</div><div class="v-unit">mmHg</div></div>
+    <div class="vcard vc-green" id="vc-spo2"><div class="v-lbl">SpO₂</div><div class="v-val vg" id="vSPO2">98</div><div class="v-unit">%</div></div>
+    <div class="vcard vc-cyan" id="vc-ef"><div class="v-lbl">EF</div><div class="v-val vc" id="vEF">65</div><div class="v-unit">%</div></div>
+  </div>
+  <div class="ecg-wrap">
+    <div class="ecg-head"><span class="ecg-lbl">ECG — Lead II</span><span class="ecg-badge" id="ecgBadge">NSR</span></div>
+    <canvas id="ecgCanvas" width="270" height="48"></canvas>
+  </div>
+  <div class="stages-wrap">
+    <div class="sec-lbl">Procedure Stages</div>
+    <div id="stageList"></div>
+  </div>
+  <div class="risk-wrap">
+    <div class="sec-lbl">Risk Score</div>
+    <div class="risk-track"><div class="risk-fill" id="riskBar" style="width:5%"></div></div>
+    <div class="risk-row"><div class="risk-num vg" id="riskNum">Low</div><div class="risk-tag" id="riskTag">Stable</div></div>
+  </div>
+  <div class="pacer" id="pacerWidget"><div class="pacer-dot"></div><div class="pacer-txt">⚡ Pacemaker — <span id="pacerRate">70</span> ppm</div></div>
+  <div class="alert-bar" id="alertBar"><span class="alert-icon">⚠</span><span id="alertTxt"></span></div>
+  <div class="sb-footer">
+    <button class="btn-s" onclick="prevStep()">← Back</button>
+    <button class="btn-p" onclick="nextStep()">Advance Stage →</button>
+  </div>
+</div>
+
+<!-- VIEWPORT -->
+<div class="viewport">
+  <div class="vp-bar">
+    <div class="vp-title" id="vpTitle">3D Cardiac Simulation</div>
+    <button onclick="openHeartMap()" style="padding:5px 12px;border-radius:5px;border:1px solid rgba(232,64,64,.4);background:rgba(232,64,64,.1);color:var(--red2);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:background .15s;letter-spacing:.04em" onmouseover="this.style.background='rgba(232,64,64,.2)'" onmouseout="this.style.background='rgba(232,64,64,.1)'">
+      🫀 Heart Map
+    </button>
+    <div class="view-btns">
+      <button class="vbtn active" id="vbBeat" onclick="setView('beat')">❤ Beating</button>
+      <button class="vbtn" id="vbAnat" onclick="setView('anatomy')">🫀 Anatomy</button>
+    </div>
+    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+  </div>
+  <div id="phaseOverlay"></div>
+  <canvas id="renderCanvas"></canvas>
+  <div class="ana-lbl" id="aLA" style="top:20%;left:26%">Left Atrium</div>
+  <div class="ana-lbl" id="aRA" style="top:20%;right:24%">Right Atrium</div>
+  <div class="ana-lbl" id="aLV" style="top:62%;left:20%">Left Ventricle</div>
+  <div class="ana-lbl" id="aRV" style="top:62%;right:18%">Right Ventricle</div>
+  <div class="ana-lbl" id="aAO" style="top:8%;left:40%">Aorta</div>
+  <div class="ana-lbl" id="aPA" style="top:14%;right:26%">Pulm. Artery</div>
+  <div class="loader" id="loader">
+    <div class="loader-ring"></div>
+    <div class="loader-txt" id="loaderTxt">Initialising Babylon.js engine…</div>
+    <div class="loader-sub">Loading beating-heart.glb…</div>
+  </div>
+  <div class="hud">
+    <div class="hud-chips">
+      <div class="hchip ok" id="hcLumen">Lumen <span id="hdLumen">3.8mm</span></div>
+      <div class="hchip" id="hcPat">Patency <span id="hdPat">100%</span></div>
+      <div class="hchip" id="hcSten">Stenosis <span id="hdSten">0%</span></div>
+      <div class="hchip ok" id="hcFlow">Flow <span id="hdFlow">5.0 L/min</span></div>
+      <div class="hchip" id="hcRhythm">Rhythm <span id="hdRhythm">Regular</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="rpanel">
+  <div class="rp-head"><div class="rp-sup">Active Module</div><div class="rp-module" id="rpModule">Coronary Artery Disease</div></div>
+  <div class="ctrl-sect">
+    <div class="ctrl-lbl">Simulation Controls</div>
+    <div class="ctrl-grid">
+      <button class="cbtn on" id="cBeat" onclick="toggleBeat()">❤ Beat ON</button>
+      <button class="cbtn" id="cRotate" onclick="toggleRotate()">↻ Rotate</button>
+      <button class="cbtn" id="cWire" onclick="toggleWire()">⬡ Wireframe</button>
+      <button class="cbtn" id="cXray" onclick="toggleXray()">◎ X-Ray</button>
+    </div>
+    <button class="cbtn" style="width:100%" id="cGlow" onclick="toggleGlow()">✦ Pulse Glow</button>
+  </div>
+  <div class="hr-sect">
+    <div class="ctrl-lbl">HR Override — <span id="hrDisplay" style="color:var(--blue2);font-family:'JetBrains Mono',monospace">72</span> bpm</div>
+    <div class="hr-row">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted)">30</span>
+      <input type="range" class="slider" id="hrSlider" min="30" max="200" value="72" style="--pct:24%" oninput="hrOverride(this.value)">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted)">200</span>
+    </div>
+  </div>
+  <div style="padding:10px 12px 0;flex-shrink:0">
+    <div class="sec-lbl" style="margin-bottom:7px">Vessel Cross-Section</div>
+    <svg id="vesselSvg" viewBox="0 0 110 96" width="100%" style="border-radius:5px;background:#06080e;display:block;max-height:105px"></svg>
+  </div>
+  <div class="notes-sect">
+    <div class="sec-lbl" style="margin-bottom:8px">Clinical Notes</div>
+    <div class="notes-body" id="notesBody">Select a disease module and stage.</div>
+  </div>
+</div>
+
+</div>
+
+<!-- HEART MAP OVERLAY -->
+<div class="hmap-overlay" id="hmapOverlay" onclick="if(event.target===this)closeHeartMap()">
+  <div class="hmap-box">
+    <div class="hmap-header">
+      <div>
+        <div class="hmap-title">🫀 Heart Region Map — <span id="hmapDiseaseName">—</span></div>
+        <div class="hmap-sub">Affected regions highlighted based on active disease module</div>
+      </div>
+      <button class="hmap-close" onclick="closeHeartMap()">✕</button>
+    </div>
+    <div class="hmap-body">
+      <div class="hmap-svg-wrap">
+        <!-- Anatomical heart diagram SVG -->
+        <svg id="hmapSvg" viewBox="0 0 320 320" width="340" height="340" xmlns="http://www.w3.org/2000/svg">
+          <!-- Background -->
+          <rect width="320" height="320" fill="#06080e" rx="8"/>
+
+          <!-- Aorta -->
+          <path id="hr-aorta" class="hr-region" d="M148 38 Q140 20 130 15 Q118 10 115 22 Q112 35 120 45 Q130 52 148 55 Z" fill="#3b9eff" opacity="0.25"/>
+          <path d="M148 38 Q140 20 130 15 Q118 10 115 22 Q112 35 120 45 Q130 52 148 55 Z" fill="none" stroke="#3b9eff" stroke-width="1.2" opacity="0.5"/>
+
+          <!-- Pulmonary Artery -->
+          <path id="hr-pa" class="hr-region" d="M168 42 Q175 22 185 18 Q196 14 198 26 Q200 38 192 47 Q182 54 168 56 Z" fill="#06b6d4" opacity="0.2"/>
+          <path d="M168 42 Q175 22 185 22 Q196 14 198 26 Q200 38 192 47 Q182 54 168 56 Z" fill="none" stroke="#06b6d4" stroke-width="1.2" opacity="0.45"/>
+
+          <!-- Right Atrium -->
+          <ellipse id="hr-ra" class="hr-region" cx="220" cy="118" rx="44" ry="36" fill="#f97316" opacity="0.18"/>
+          <ellipse cx="220" cy="118" rx="44" ry="36" fill="none" stroke="#f97316" stroke-width="1.3" opacity="0.5"/>
+
+          <!-- Left Atrium -->
+          <ellipse id="hr-la" class="hr-region" cx="108" cy="110" rx="42" ry="32" fill="#a855f7" opacity="0.18"/>
+          <ellipse cx="108" cy="110" rx="42" ry="32" fill="none" stroke="#a855f7" stroke-width="1.3" opacity="0.5"/>
+
+          <!-- Right Ventricle -->
+          <path id="hr-rv" class="hr-region" d="M190 148 Q235 148 248 175 Q258 200 245 235 Q232 262 210 270 Q190 276 178 260 Q168 240 172 210 Q175 178 190 148 Z" fill="#f0a500" opacity="0.18"/>
+          <path d="M190 148 Q235 148 248 175 Q258 200 245 235 Q232 262 210 270 Q190 276 178 260 Q168 240 172 210 Q175 178 190 148 Z" fill="none" stroke="#f0a500" stroke-width="1.3" opacity="0.5"/>
+
+          <!-- Left Ventricle -->
+          <path id="hr-lv" class="hr-region" d="M130 148 Q85 148 72 175 Q62 200 75 235 Q88 262 110 270 Q130 276 142 260 Q152 240 148 210 Q145 178 130 148 Z" fill="#e84040" opacity="0.18"/>
+          <path d="M130 148 Q85 148 72 175 Q62 200 75 235 Q88 262 110 270 Q130 276 142 260 Q152 240 148 210 Q145 178 130 148 Z" fill="none" stroke="#e84040" stroke-width="1.3" opacity="0.5"/>
+
+          <!-- Septum divider -->
+          <line x1="160" y1="140" x2="160" y2="272" stroke="#1e2a42" stroke-width="2"/>
+
+          <!-- Coronary arteries -->
+          <path id="hr-lad" class="hr-region" d="M148 100 Q155 130 152 170 Q150 210 148 240" fill="none" stroke="#2ecc71" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+          <path id="hr-rca" class="hr-region" d="M172 100 Q178 130 188 165 Q200 200 205 235" fill="none" stroke="#52e892" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+          <path id="hr-cx" class="hr-region" d="M130 118 Q110 138 90 160 Q75 178 72 200" fill="none" stroke="#6dbfff" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+
+          <!-- Valves -->
+          <ellipse id="hr-mitral" class="hr-region" cx="130" cy="148" rx="16" ry="8" fill="#a855f7" opacity="0.15"/>
+          <ellipse cx="130" cy="148" rx="16" ry="8" fill="none" stroke="#a855f7" stroke-width="1.2" opacity="0.4"/>
+          <ellipse id="hr-tricuspid" class="hr-region" cx="190" cy="148" rx="16" ry="8" fill="#f97316" opacity="0.15"/>
+          <ellipse cx="190" cy="148" rx="16" ry="8" fill="none" stroke="#f97316" stroke-width="1.2" opacity="0.4"/>
+          <ellipse id="hr-aorticv" class="hr-region" cx="148" cy="80" rx="10" ry="7" fill="#3b9eff" opacity="0.15"/>
+          <ellipse cx="148" cy="80" rx="10" ry="7" fill="none" stroke="#3b9eff" stroke-width="1.2" opacity="0.4"/>
+
+          <!-- Pulmonary veins (into LA) -->
+          <path id="hr-pvs" class="hr-region" d="M80 90 Q90 100 108 108 M80 120 Q90 115 108 112" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" opacity="0.25"/>
+
+          <!-- Pericardium outline -->
+          <path d="M160 30 Q220 25 260 80 Q295 130 288 200 Q280 265 220 295 Q180 312 160 312 Q140 312 100 295 Q40 265 32 200 Q25 130 60 80 Q100 25 160 30 Z" fill="none" stroke="#1e2a42" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.6"/>
+          <text x="160" y="22" text-anchor="middle" class="hr-label" opacity="0.5">Pericardium</text>
+
+          <!-- Labels -->
+          <text x="113" y="9" text-anchor="middle" class="hr-label">Aorta</text>
+          <text x="192" y="9" text-anchor="middle" class="hr-label">Pulm. A.</text>
+          <text x="108" y="113" text-anchor="middle" class="hr-label" fill="rgba(226,234,248,.8)">LA</text>
+          <text x="220" y="121" text-anchor="middle" class="hr-label" fill="rgba(226,234,248,.8)">RA</text>
+          <text x="110" y="215" text-anchor="middle" class="hr-label" fill="rgba(226,234,248,.8)">LV</text>
+          <text x="210" y="215" text-anchor="middle" class="hr-label" fill="rgba(226,234,248,.8)">RV</text>
+          <text x="148" y="151" text-anchor="middle" class="hr-label">MV</text>
+          <text x="190" y="151" text-anchor="middle" class="hr-label">TV</text>
+          <text x="148" y="82" text-anchor="middle" class="hr-label">AV</text>
+          <text x="152" y="248" text-anchor="middle" class="hr-label" fill="#2ecc71" opacity="0.7">LAD</text>
+          <text x="208" y="248" text-anchor="middle" class="hr-label" fill="#52e892" opacity="0.7">RCA</text>
+        </svg>
+      </div>
+
+      <div class="hmap-info">
+        <div id="hmapRegionList" class="hmap-region-list">
+          <div style="color:var(--muted2);font-size:11px;font-family:'Syne',sans-serif">Select a disease to see affected regions.</div>
+        </div>
+        <div class="hmap-legend">
+          <div class="hmap-legend-item"><div class="hmap-legend-dot" style="background:#e84040"></div>Left Ventricle</div>
+          <div class="hmap-legend-item"><div class="hmap-legend-dot" style="background:#f0a500"></div>Right Ventricle</div>
+          <div class="hmap-legend-item"><div class="hmap-legend-dot" style="background:#a855f7"></div>Left Atrium / Mitral V.</div>
+          <div class="hmap-legend-item"><div class="hmap-legend-dot" style="background:#f97316"></div>Right Atrium / Tricuspid V.</div>
+          <div class="hmap-legend-item"><div class="hmap-legend-dot" style="background:#2ecc71"></div>Coronary Arteries</div>
+          <div class="hmap-legend-item"><div class="hmap-legend-dot" style="background:#3b9eff"></div>Aorta / Aortic Valve</div>
+          <div class="hmap-legend-item"><div class="hmap-legend-dot" style="background:#06b6d4"></div>Pulm. Artery / PV</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ML TOGGLE BUTTON -->
+<button class="ml-toggle" id="mlToggle" onclick="toggleML()">
+  <div class="ml-toggle-dot"></div>
+  ◆ ML CARDIAC ANALYSIS
+</button>
+
+<!-- ML PANEL — simplified layout -->
+<div class="ml-panel" id="mlPanel">
+  <div class="ml-inner">
+
+    <!-- COL 1: Risk Score -->
+    <div class="ml-col">
+      <div class="ml-section-title">Risk Score <span class="ml-badge">Logistic Reg.</span></div>
+      <div class="ml-card">
+        <div class="ml-big-score" id="mlRiskScore" style="color:var(--green)">--</div>
+        <div class="ml-score-lbl">30-DAY MACE RISK</div>
+        <div class="ml-conf-bar-wrap">
+          <div class="ml-conf-bar-track"><div class="ml-conf-bar-fill" id="mlConfBar" style="width:0%"></div></div>
+          <div class="ml-conf-txt" id="mlConfTxt">—</div>
+        </div>
+      </div>
+      <div class="ml-card">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);margin-bottom:6px">OUTCOME PREDICTIONS</div>
+        <div class="ml-bars">
+          <div class="ml-bar-row"><span class="ml-bar-lbl">MACE</span><div class="ml-bar-track"><div class="ml-bar-fill" id="br-mace" style="width:0%;background:var(--red)"></div></div><span class="ml-bar-val" id="bv-mace">--</span></div>
+          <div class="ml-bar-row"><span class="ml-bar-lbl">Mortality</span><div class="ml-bar-track"><div class="ml-bar-fill" id="br-mort" style="width:0%;background:var(--orange)"></div></div><span class="ml-bar-val" id="bv-mort">--</span></div>
+          <div class="ml-bar-row"><span class="ml-bar-lbl">Re-hosp</span><div class="ml-bar-track"><div class="ml-bar-fill" id="br-reh" style="width:0%;background:var(--yellow)"></div></div><span class="ml-bar-val" id="bv-reh">--</span></div>
+          <div class="ml-bar-row"><span class="ml-bar-lbl">Stroke</span><div class="ml-bar-track"><div class="ml-bar-fill" id="br-str" style="width:0%;background:var(--purple)"></div></div><span class="ml-bar-val" id="bv-str">--</span></div>
+        </div>
+      </div>
+      <div class="ml-card">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);margin-bottom:5px">TOP RISK FACTORS</div>
+        <div class="feature-imp" id="featImp">
+          <div class="feat-row"><span class="feat-lbl">—</span><div class="feat-bar-t"><div class="feat-bar-f" style="width:0%"></div></div><span class="feat-pct">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 2: Rhythm -->
+    <div class="ml-col">
+      <div class="ml-section-title">Rhythm Detection <span class="ml-badge">Naive Bayes</span></div>
+      <div class="ml-card">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);margin-bottom:5px">RHYTHM PROBABILITIES</div>
+        <div class="ml-bars">
+          <div class="ml-bar-row"><span class="ml-bar-lbl">NSR</span><div class="ml-bar-track"><div class="ml-bar-fill" id="rr-nsr" style="width:0%;background:var(--green)"></div></div><span class="ml-bar-val" id="rv-nsr">--</span></div>
+          <div class="ml-bar-row"><span class="ml-bar-lbl">AF/AFL</span><div class="ml-bar-track"><div class="ml-bar-fill" id="rr-af" style="width:0%;background:var(--yellow)"></div></div><span class="ml-bar-val" id="rv-af">--</span></div>
+          <div class="ml-bar-row"><span class="ml-bar-lbl">ST-Elev</span><div class="ml-bar-track"><div class="ml-bar-fill" id="rr-st" style="width:0%;background:var(--red)"></div></div><span class="ml-bar-val" id="rv-st">--</span></div>
+          <div class="ml-bar-row"><span class="ml-bar-lbl">LBBB</span><div class="ml-bar-track"><div class="ml-bar-fill" id="rr-lb" style="width:0%;background:var(--blue)"></div></div><span class="ml-bar-val" id="rv-lb">--</span></div>
+          <div class="ml-bar-row"><span class="ml-bar-lbl">Paced</span><div class="ml-bar-track"><div class="ml-bar-fill" id="rr-pc" style="width:0%;background:var(--purple)"></div></div><span class="ml-bar-val" id="rv-pc">--</span></div>
+          <div class="ml-bar-row"><span class="ml-bar-lbl">AV Block</span><div class="ml-bar-track"><div class="ml-bar-fill" id="rr-avb" style="width:0%;background:var(--cyan)"></div></div><span class="ml-bar-val" id="rv-avb">--</span></div>
+        </div>
+        <div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--border)">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--muted2);margin-bottom:2px">PREDICTED RHYTHM</div>
+          <div class="ml-rhythm-name" id="predRhythm">—</div>
+          <div class="ml-rhythm-sub" id="predConf"></div>
+        </div>
+      </div>
+      <button class="ml-run-btn" id="mlRunBtn" onclick="runMLAnalysis()">
+        <div class="ml-spinner"></div>
+        <span class="ml-btn-txt">▶ Run ML Analysis</span>
+      </button>
+      <div class="ml-card">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted2);margin-bottom:5px">LIVE INPUTS</div>
+        <div id="mlInputDisplay" style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--muted)">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 3: AI Reasoning -->
+    <div class="ml-col">
+      <div class="ml-section-title">AI Clinical Reasoning <span class="ml-badge">Claude</span></div>
+      <div class="ai-output" id="aiOutput">
+        <span class="ai-placeholder">Click "Run ML Analysis" to get AI-powered clinical interpretation.</span>
+      </div>
+      <div class="conf-row" id="aiConfRow"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  DISEASE DATA — all 9 conditions preserved
+// ═══════════════════════════════════════════════════════════════════════
+const DISEASES={
+  cad:{name:"Coronary Artery Disease",ecg:"normal",stages:[
+    {id:1,lbl:"Baseline Physiology",badge:"Normal",hr:72,bp:120,spo2:98,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:5,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stable",alert:null,pacer:false,proc:'idle',
+     info:"<b>Normal coronary artery.</b> Laminar, unobstructed blood flow. Lumen 3.8 mm, endothelial function intact. No lipid deposits detected. Cardiac output optimal. <span class='pill pg'>Healthy</span>"},
+    {id:2,lbl:"Plaque Accumulation",badge:"Stage I",hr:79,bp:132,spo2:97,ef:60,flow:3.8,pat:70,sten:30,lumen:"2.7mm",rhythm:"Regular",risk:35,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Atherosclerosis",alert:{c:"aw",t:"Lipid-rich plaque detected — exertional angina risk"},pacer:false,proc:'idle',
+     info:"<b>Atherosclerotic plaque forming.</b> Cholesterol deposits in tunica intima. Lumen narrowed to 2.7 mm (30% stenosis). Exertional angina on stress testing. <span class='pill py'>Stage I</span>"},
+    {id:3,lbl:"Critical Stenosis",badge:">70%",hr:97,bp:158,spo2:92,ef:41,flow:1.2,pat:22,sten:75,lumen:"0.9mm",rhythm:"Irregular",risk:84,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"STEMI Risk",alert:{c:"ac",t:"Critical stenosis — STEMI risk HIGH — immediate PCI required"},pacer:false,proc:'idle',
+     info:"<b>Haemodynamically significant obstruction.</b> 75% stenosis, FFR &lt;0.8. Near-complete occlusion with turbulent retrograde steal. Risk of plaque rupture very high. <span class='pill pr'>Emergency</span>"},
+    {id:4,lbl:"Guidewire + Catheter",badge:"PCI",hr:86,bp:140,spo2:95,ef:48,flow:3.5,pat:72,sten:28,lumen:"2.9mm",rhythm:"Regular",risk:45,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"PCI Active",alert:{c:"aw",t:"0.014\" guidewire crossing lesion — catheter tracking over wire"},pacer:false,proc:'cathpci',
+     info:"<b>6Fr guiding catheter seated in left coronary ostium.</b> 0.014\" guidewire advanced through stenosis under fluoroscopy. Catheter navigates: femoral artery → iliac → aorta → aortic root → LCA ostium → LAD. Wire crosses stenosis. <span class='pill pb'>PCI Active</span>"},
+    {id:5,lbl:"Balloon Angioplasty",badge:"PTCA",hr:84,bp:138,spo2:95,ef:50,flow:3.6,pat:78,sten:22,lumen:"3.0mm",rhythm:"Regular",risk:38,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Ballooning",alert:{c:"aw",t:"Balloon inflating at stenosis 12 atm — plaque cracking"},pacer:false,proc:'balloon',balloon:true,
+     info:"<b>2.5×15 mm semi-compliant balloon positioned at stenosis.</b> Inflated to 12 atm: balloon expands inside vessel, cracking and compressing plaque radially. Held 30–45 s. Lumen restored to 3.0 mm. DES deployment next. <span class='pill pb'>PTCA</span>"},
+    {id:6,lbl:"Stent Deployment",badge:"DES",hr:76,bp:124,spo2:97,ef:57,flow:4.7,pat:93,sten:7,lumen:"3.6mm",rhythm:"Regular",risk:15,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stented",alert:null,pacer:false,proc:'stent',stent:true,
+     info:"<b>Drug-eluting stent crimped on delivery balloon, advanced to lesion.</b> Balloon inflated to 14 atm — nitinol scaffold springs open, pressed against vessel wall. Everolimus coating prevents neointimal proliferation. DAPT 12 months. <span class='pill pg'>DES Deployed</span>"},
+  ]},
+
+  pacemaker:{name:"Pacemaker Implantation",ecg:"paced",stages:[
+    {id:1,lbl:"Complete Heart Block",badge:"3°HB",hr:36,bp:80,spo2:89,ef:36,flow:2.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Dissociated",risk:90,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Emergency",alert:{c:"ac",t:"Complete AV block — ventricular escape 36 bpm — urgent pacing"},pacer:false,ecgOvr:"3°Block",proc:'idle',
+     info:"<b>Third-degree complete AV block.</b> Total electrical dissociation. Ventricular escape at 36 bpm — haemodynamic collapse imminent. Transcutaneous pads applied. Atropine 600 mcg — no response. Immediate transvenous pacing required. <span class='pill pr'>Code Blue Risk</span>"},
+    {id:2,lbl:"Subclavian Access",badge:"Access",hr:70,bp:96,spo2:92,ef:42,flow:3.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Paced",risk:58,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"TCP Bridge",alert:{c:"aw",t:"Left subclavian vein accessed — J-wire in SVC confirmed"},pacer:true,pacerRate:70,proc:'vein_access',
+     info:"<b>Left subclavian vein punctured — Seldinger technique.</b> 18G needle below clavicle → J-wire into vein → 8Fr dilator → sheath. Fluoroscopy confirms wire tip in SVC. External transcutaneous pacing bridges at 70 ppm during procedure. <span class='pill py'>Access OK</span>"},
+    {id:3,lbl:"RV Lead Threading",badge:"Lead→RV",hr:70,bp:106,spo2:95,ef:47,flow:3.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Paced",risk:42,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Threading",alert:{c:"ai",t:"7Fr lead: SVC → RA → tricuspid valve → RV apex — fluoroscopy active"},pacer:true,pacerRate:70,proc:'pacing',
+     info:"<b>7Fr bipolar active-fixation lead threaded under fluoroscopy.</b> Path: subclavian vein → SVC → RA → across tricuspid valve → RV body → RV apex. Helix screw deployed into myocardium. Sensing 8mV, threshold 0.6V@0.5ms, impedance 580Ω. <span class='pill pb'>Lead Placed</span>"},
+    {id:4,lbl:"Pulse Generator Implant",badge:"PPM",hr:70,bp:112,spo2:97,ef:50,flow:4.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Paced",risk:28,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"PPM Implanted",alert:null,pacer:true,pacerRate:70,proc:'generator',
+     info:"<b>Permanent pacemaker generator implanted.</b> Sub-pectoral pocket created with electrosurgery. Leads connected to generator. DDD mode — senses atrium, paces ventricle with 180ms AV delay. Battery longevity ~10 years at 70 ppm. <span class='pill pp'>PPM</span>"},
+    {id:5,lbl:"CRT-D Biventricular",badge:"CRT-D",hr:68,bp:118,spo2:97,ef:55,flow:4.5,pat:100,sten:0,lumen:"3.8mm",rhythm:"BiV Paced",risk:22,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"CRT-D",alert:{c:"ai",t:"BiV pacing synchronising LV + RV — correcting LBBB dyssynchrony"},pacer:true,pacerRate:68,proc:'pacing',
+     info:"<b>CRT-D biventricular device.</b> Third lead advanced into coronary sinus → lateral LV vein for LV epicardial pacing. BiV synchronisation corrects LBBB dyssynchrony. EF improves 35%→55% in 70% of responders. <span class='pill pp'>CRT-D Active</span>"},
+    {id:6,lbl:"Post-Implant D7",badge:"D7",hr:68,bp:115,spo2:99,ef:58,flow:4.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Paced",risk:10,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stable",alert:null,pacer:true,pacerRate:68,proc:'idle',
+     info:"<b>Device functioning optimally at day 7.</b> Wound healing well. Arm restriction 6 weeks. Remote monitoring enabled. Clinic at 6 weeks, then 6-monthly. MRI-conditional status confirmed. <span class='pill pg'>Recovered</span>"},
+  ]},
+
+  afib:{name:"Atrial Fibrillation",ecg:"afib",stages:[
+    {id:1,lbl:"Sinus Rhythm Baseline",badge:"NSR",hr:70,bp:120,spo2:98,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:5,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"NSR",alert:null,pacer:false,ecgOvr:"Normal",proc:'idle',
+     info:"<b>Normal sinus rhythm — baseline.</b> Regular P-QRS-T morphology. PR interval 160 ms. AV node conduction intact. CHA₂DS₂-VASc baseline established. <span class='pill pg'>NSR</span>"},
+    {id:2,lbl:"Paroxysmal AF Onset",badge:"PAF",hr:120,bp:138,spo2:94,ef:53,flow:3.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Irregularly Irreg.",risk:44,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"PAF",alert:{c:"aw",t:"AF onset — irregularly irregular — P-waves absent"},pacer:false,proc:'idle',
+     info:"<b>Paroxysmal AF onset.</b> Chaotic micro re-entrant circuits in atrial myocardium. PV ectopy drives fibrillatory conduction 350–600/min. Irregular ventricular response 120 bpm. Anticoagulation commenced. <span class='pill py'>PAF</span>"},
+    {id:3,lbl:"Persistent AF",badge:"AF",hr:136,bp:148,spo2:92,ef:43,flow:2.7,pat:100,sten:0,lumen:"3.8mm",rhythm:"Irreg. Irreg.",risk:68,rLbl:"High",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Persistent AF",alert:{c:"ac",t:"Persistent AF >7 days — LAA thrombus risk — anticoagulate NOW"},pacer:false,proc:'idle',
+     info:"<b>Persistent AF (&gt;7 days).</b> LAA stasis — thrombus risk high. DOAC mandatory (CHA₂DS₂-VASc ≥2). Tachycardia-induced cardiomyopathy risk if untreated. Rate vs rhythm control required. <span class='pill pr'>High Risk</span>"},
+    {id:4,lbl:"Rate Control",badge:"β-block",hr:82,bp:126,spo2:96,ef:50,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Controlled Irreg.",risk:38,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Rate Ctrl",alert:{c:"ai",t:"Metoprolol 50mg BD — target ventricular rate <110 bpm"},pacer:false,proc:'idle',
+     info:"<b>Rate control with metoprolol.</b> Ventricular rate 82 bpm. AF persists but ventricular response regularised. Anticoagulation continued. Echo at 4 weeks. AFFIRM trial supports rate control equivalence. <span class='pill pb'>Rate Controlled</span>"},
+    {id:5,lbl:"DC Cardioversion",badge:"DCCV",hr:67,bp:117,spo2:98,ef:60,flow:4.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:18,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Cardioverted",alert:null,pacer:false,ecgOvr:"Normal",proc:'dccv',
+     info:"<b>Synchronised DC cardioversion — 200J biphasic.</b> Paddles applied: anteriorly (right sternal border) + posteriorly (left scapula). R-wave synchronised shock depolarises all atrial myocytes simultaneously, allowing SA node to resume control. NSR restored. <span class='pill pg'>NSR Restored</span>"},
+    {id:6,lbl:"PV Isolation (PVI)",badge:"Ablation",hr:64,bp:114,spo2:99,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:10,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Post-PVI",alert:null,pacer:false,ecgOvr:"Normal",proc:'ablation',
+     info:"<b>Pulmonary vein isolation — RF ablation.</b> Transseptal access to LA. RF catheter burns circumferential lesions around all 4 PV ostia (LSPV, LIPV, RSPV, RIPV). 30–40W, 30–60s per point. Bidirectional block confirmed. 60–70% freedom from AF. <span class='pill pc'>PVI Done</span>"},
+  ]},
+
+  stemi:{name:"STEMI / Acute MI",ecg:"stemi",stages:[
+    {id:1,lbl:"Chest Pain — T=0",badge:"0 min",hr:98,bp:160,spo2:93,ef:54,flow:2.8,pat:74,sten:26,lumen:"2.8mm",rhythm:"Sinus Tachycardia",risk:78,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"STEMI",alert:{c:"ac",t:"STEMI — Activate Cath Lab NOW — Door-to-Balloon <90 min"},pacer:false,proc:'idle',
+     info:"<b>Anterior STEMI — LAD total occlusion.</b> ST elevation V1–V4. Crushing chest pain, diaphoresis. Aspirin 300mg + ticagrelor 180mg loading. IV heparin 5000U. ECG transmitted to Cath Lab. <span class='pill pr'>STEMI</span>"},
+    {id:2,lbl:"Total LAD Occlusion",badge:"TIMI 0",hr:106,bp:100,spo2:90,ef:37,flow:1.0,pat:8,sten:92,lumen:"0.3mm",rhythm:"Ectopic Beats",risk:94,rLbl:"Imminent MI",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"TIMI 0",alert:{c:"ac",t:"Complete LAD occlusion — anterior WMA — VF risk — defib standby"},pacer:false,proc:'idle',
+     info:"<b>Total LAD occlusion — TIMI grade 0.</b> Massive anterior wall ischaemia. LV anterior wall akinetic. Troponin rising. VF risk elevated. Guidewire advancing across occlusion. <span class='pill pr'>Total Occlusion</span>"},
+    {id:3,lbl:"Thrombectomy + Wire",badge:"D2B 45m",hr:100,bp:108,spo2:93,ef:40,flow:1.8,pat:30,sten:70,lumen:"1.1mm",rhythm:"Ectopic",risk:82,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"PCI Active",alert:{c:"ac",t:"Thrombus aspiration catheter active — TIMI 0→1 — reperfusion imminent"},pacer:false,proc:'cathpci',
+     info:"<b>0.014\" wire crossing total LAD occlusion.</b> Thrombus aspiration catheter advanced over wire — 20 mL clot aspirated. TIMI 0→1. High thrombus burden. Bivalirudin bolus. Pre-dilatation balloon next. <span class='pill po'>Active PCI</span>"},
+    {id:4,lbl:"Reperfusion TIMI 3",badge:"TIMI 3",hr:89,bp:113,spo2:95,ef:44,flow:3.2,pat:62,sten:38,lumen:"2.3mm",rhythm:"Regular",risk:58,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Reperfused",alert:{c:"aw",t:"TIMI 3 flow restored — balloon pre-dilating stenosis"},pacer:false,proc:'balloon',
+     info:"<b>Balloon pre-dilatation of culprit stenosis.</b> 2.0×15mm balloon inflated at LAD stenosis. TIMI 3 flow restored. ST resolution 60%. Reperfusion injury — ROS burst, calcium overload. Troponin I peaking. Stent deployment next. <span class='pill py'>Reperfused</span>"},
+    {id:5,lbl:"DES in Culprit",badge:"DES",hr:80,bp:118,spo2:96,ef:48,flow:4.2,pat:92,sten:8,lumen:"3.5mm",rhythm:"Regular",risk:38,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Stented",alert:null,pacer:false,proc:'stent',stent:true,
+     info:"<b>3.5×28mm DES deployed in proximal LAD at 14 atm.</b> Stent scaffold pressed against vessel wall. FFR post-stent 0.92. OCT confirms full apposition. Troponin peak 12,000 U/L. DAPT lifelong. <span class='pill pb'>Stented</span>"},
+    {id:6,lbl:"6-Week Review",badge:"D42",hr:66,bp:114,spo2:99,ef:52,flow:4.9,pat:96,sten:4,lumen:"3.7mm",rhythm:"Regular",risk:16,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Recovered",alert:null,pacer:false,proc:'idle',stent:true,
+     info:"<b>Good LV recovery at 6 weeks.</b> EF improved 38%→52%. Stunning resolved. ICD not required (EF >35%). Cardiac rehab completed. Annual MACE risk 3.8%. <span class='pill pg'>Recovering</span>"},
+  ]},
+
+  hf:{name:"Heart Failure (HFrEF)",ecg:"lbbb",stages:[
+    {id:1,lbl:"Compensated HFrEF",badge:"NYHA II",hr:85,bp:134,spo2:95,ef:35,flow:3.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:44,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"HFrEF",alert:{c:"ai",t:"HFrEF EF 35% — NYHA II — GDMT optimisation in progress"},pacer:false,proc:'idle',
+     info:"<b>Heart failure with reduced EF (HFrEF).</b> EF 35%, NYHA class II. Compensated by RAAS + SNS activation. BNP elevated. ACEi + beta-blocker + loop diuretic initiated. <span class='pill py'>HFrEF</span>"},
+    {id:2,lbl:"Acute Decompensation",badge:"NYHA IV",hr:120,bp:86,spo2:85,ef:20,flow:1.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",risk:90,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"ADHF",alert:{c:"ac",t:"Acute decompensated HF — pulmonary oedema — ICU transfer"},pacer:false,proc:'idle',
+     info:"<b>Acute decompensated heart failure.</b> Flash pulmonary oedema — PCWP &gt;30 mmHg. EF critically depressed at 20%. IV furosemide 80mg + GTN infusion. Dobutamine inotrope. Immediate ICU. <span class='pill pr'>ADHF</span>"},
+    {id:3,lbl:"IV Diuresis",badge:"Rx",hr:96,bp:105,spo2:92,ef:27,flow:2.7,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:64,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Stabilising",alert:{c:"aw",t:"IV furosemide — UO 130 ml/hr — AKI risk — electrolytes Q6H"},pacer:false,proc:'idle',
+     info:"<b>IV furosemide + dobutamine 5 mcg/kg/min.</b> UO 130 ml/hr. Fluid removal 2.5L in 24h. Oedema resolving. Creatinine trending — hold spironolactone. Daily weights. <span class='pill pb'>Stabilising</span>"},
+    {id:4,lbl:"GDMT Optimisation",badge:"GDMT",hr:76,bp:116,spo2:96,ef:38,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:34,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"GDMT",alert:null,pacer:false,proc:'idle',
+     info:"<b>GDMT quadruple therapy.</b> Sacubitril/valsartan + carvedilol + eplerenone + empagliflozin (SGLT2i). PARADIGM-HF + DAPA-HF evidence base. BNP ↓ 62%. <span class='pill pb'>GDMT</span>"},
+    {id:5,lbl:"LVAD Implantation",badge:"LVAD",hr:72,bp:66,spo2:97,ef:18,flow:5.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Continuous",risk:50,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"LVAD",alert:{c:"ai",t:"HeartMate 3 — 5.2 L/min — non-pulsatile flow — MAP 66 mmHg"},pacer:false,proc:'idle',
+     info:"<b>HeartMate 3 LVAD implanted.</b> Centrifugal continuous-flow pump at 5400 rpm. Inflow cannula in LV apex, outflow to ascending aorta. Bridge-to-transplant. INR 2.0–3.0. <span class='pill pp'>LVAD Active</span>"},
+    {id:6,lbl:"Cardiac Transplant",badge:"HTx",hr:96,bp:118,spo2:99,ef:65,flow:5.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:14,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Post-HTx",alert:null,pacer:false,proc:'idle',
+     info:"<b>Orthotopic cardiac transplantation.</b> Bicaval anastomosis. Denervated heart — resting HR ~96 bpm (no vagal tone). Triple immunosuppression: tacrolimus + MMF + prednisolone. Median survival 13 years. <span class='pill pc'>Post-HTx</span>"},
+  ]},
+
+  valve:{name:"Valve Disease / TAVR",ecg:"normal",stages:[
+    {id:1,lbl:"Severe Aortic Stenosis",badge:"AS",hr:76,bp:106,spo2:94,ef:54,flow:3.1,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:64,rLbl:"High",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Severe AS",alert:{c:"aw",t:"Severe AS — AVA 0.7 cm² — mean gradient 48 mmHg — intervene"},pacer:false,proc:'idle',
+     info:"<b>Severe calcific aortic stenosis.</b> AVA 0.7 cm² (severe &lt;1.0 cm²). Mean gradient 48 mmHg. Heyde triad: angina, syncope, dyspnoea. 50% 2-year mortality without intervention. <span class='pill pr'>Severe AS</span>"},
+    {id:2,lbl:"TAVR Planning",badge:"Pre-TAVR",hr:78,bp:104,spo2:93,ef:50,flow:2.9,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:56,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Pre-TAVR",alert:{c:"ai",t:"TAVR pathway — heart team consensus — CT planning commenced"},pacer:false,proc:'idle',
+     info:"<b>TAVR pathway selected.</b> STS surgical risk 8.2% (high risk). CT-TAVR: 23 mm annulus → 26 mm Sapien 3. Bicuspid anatomy — higher PVL risk. Femoral access viable at 7 mm. <span class='pill pb'>Pre-TAVR</span>"},
+    {id:3,lbl:"Valve Deployment",badge:"Active",hr:62,bp:90,spo2:94,ef:48,flow:2.7,pat:100,sten:0,lumen:"3.8mm",rhythm:"Rapid Pacing",risk:52,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Deploying",alert:{c:"aw",t:"Rapid pacing 180 bpm — balloon expanding — valve deploying"},pacer:false,proc:'cathpci',
+     info:"<b>26 mm Sapien 3 deployment.</b> Delivery system advanced retrograde: femoral artery → aorta → aortic root. Rapid ventricular pacing 180 bpm (haemostasis). Balloon inflated — stent-frame expands, valve leaflets open. AV gradient immediately reduced. <span class='pill po'>Deploying</span>"},
+    {id:4,lbl:"Post-TAVR Assessment",badge:"Post",hr:70,bp:122,spo2:97,ef:58,flow:4.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:24,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Post-TAVR",alert:null,pacer:false,proc:'idle',
+     info:"<b>TAVR successful — no significant paravalvular leak.</b> AVA 1.9 cm². Mean gradient 9 mmHg. LBBB 12% → PPM. DAPT 3–6 months. Discharge day 2–3. <span class='pill pg'>Success</span>"},
+    {id:5,lbl:"Severe Mitral Regurg.",badge:"MR",hr:88,bp:128,spo2:94,ef:50,flow:3.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:48,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Severe MR",alert:{c:"aw",t:"Severe MR — EROA 0.45 cm² — LA and LV volume overload"},pacer:false,proc:'idle',
+     info:"<b>Severe degenerative mitral regurgitation.</b> EROA 0.45 cm². P2 leaflet prolapse (Barlow's). Eccentric jet on echo. MitraClip vs surgery decision via COAPT trial. <span class='pill py'>Severe MR</span>"},
+    {id:6,lbl:"MitraClip Repair",badge:"MCV",hr:70,bp:118,spo2:98,ef:60,flow:4.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:14,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Repaired",alert:null,pacer:false,proc:'mitraclip',
+     info:"<b>MitraClip NT edge-to-edge repair.</b> Transseptal access. Clip advanced to A2-P2 junction, leaflets grasped, clip closed. MR severe→trace. COAPT: 38% ↓ HF hospitalisation at 2 years. <span class='pill pg'>Repaired</span>"},
+  ]},
+
+  hcm:{name:"Hypertrophic Cardiomyopathy",ecg:"lbbb",stages:[
+    {id:1,lbl:"Asymmetric Hypertrophy",badge:"HCM",hr:78,bp:122,spo2:97,ef:72,flow:4.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:30,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"HCM",alert:{c:"ai",t:"IVS 22 mm — asymmetric septal hypertrophy — SAM present"},pacer:false,proc:'idle',
+     info:"<b>HCM — asymmetric septal hypertrophy.</b> IVS 22 mm (normal &lt;12 mm). MYH7/MYBPC3 mutation. EF supranormal 72% — diastolic dysfunction primary. SAM of mitral valve causing LVOTO. <span class='pill py'>HCM</span>"},
+    {id:2,lbl:"LVOT Obstruction",badge:"LVOTO",hr:88,bp:142,spo2:95,ef:74,flow:3.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:52,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"LVOTO",alert:{c:"aw",t:"LVOT gradient 68 mmHg — SAM-septal contact — beta-blocker urgently"},pacer:false,proc:'idle',
+     info:"<b>Significant LVOT obstruction.</b> Peak gradient 68 mmHg (severe &gt;50 mmHg). SAM-septal contact. Exertional syncope risk. Metoprolol 100mg BD or disopyramide. Avoid vasodilators. <span class='pill py'>LVOTO</span>"},
+    {id:3,lbl:"Ventricular Arrhythmia",badge:"VT Risk",hr:145,bp:88,spo2:91,ef:68,flow:2.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"NSVT",risk:82,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"SCD Risk",alert:{c:"ac",t:"NSVT on Holter — SCD risk HIGH — ICD evaluation required"},pacer:false,proc:'idle',
+     info:"<b>NSVT on 48h Holter.</b> 5 SCD risk factors. HCM Risk-SCD score 6.2% at 5 years → ICD recommended. Avoid competitive sport. <span class='pill pr'>SCD Risk</span>"},
+    {id:4,lbl:"ICD Implantation",badge:"ICD",hr:74,bp:118,spo2:97,ef:70,flow:3.9,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:28,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"ICD",alert:null,pacer:true,pacerRate:74,proc:'pacing',
+     info:"<b>Single-chamber ICD implanted.</b> S-ICD preferred — no pacing needed. VF/VT detection zone &gt;200 bpm. Shock reduces SCD mortality &gt;90%. Genetic counselling for relatives. <span class='pill pp'>ICD Active</span>"},
+    {id:5,lbl:"Alcohol Septal Ablation",badge:"ASA",hr:70,bp:114,spo2:98,ef:65,flow:4.5,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:18,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Post-ASA",alert:{c:"ai",t:"Ethanol injected into 1st septal perforator — LVOT gradient 12 mmHg"},pacer:true,pacerRate:70,proc:'asa',
+     info:"<b>Alcohol septal ablation (ASA) performed.</b> Catheter advanced into 1st septal perforator branch. 2mL 98% ethanol injected — creates iatrogenic septal infarct, reduces septal thickness. LVOT gradient 68→12 mmHg. Temporary PPM — 10% require permanent. <span class='pill pb'>Post-ASA</span>"},
+    {id:6,lbl:"Long-term Management",badge:"D365",hr:68,bp:112,spo2:99,ef:62,flow:4.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:12,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Stable",alert:null,pacer:true,pacerRate:68,proc:'idle',
+     info:"<b>Stable on long-term HCM management.</b> Mavacamten (MyoKardia) — cardiac myosin inhibitor reduces SAM and LVOT gradient. Annual ICD check. Light aerobic exercise permitted. <span class='pill pg'>Stable</span>"},
+  ]},
+
+  tamponade:{name:"Cardiac Tamponade",ecg:"normal",stages:[
+    {id:1,lbl:"Small Pericardial Effusion",badge:"Mild",hr:84,bp:128,spo2:96,ef:60,flow:4.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:18,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Mild",alert:{c:"ai",t:"50 mL pericardial effusion — monitor — likely viral pericarditis"},pacer:false,proc:'idle',
+     info:"<b>Small pericardial effusion (~50 mL).</b> Echo: posterior echo-free space 6 mm. Likely viral pericarditis. NSAIDs + colchicine. Serial echo at 2 weeks. Pericardial pressure &lt;5 mmHg. <span class='pill pg'>Mild</span>"},
+    {id:2,lbl:"Moderate Effusion",badge:"Moderate",hr:102,bp:118,spo2:94,ef:55,flow:3.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",risk:44,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Monitor",alert:{c:"aw",t:"250 mL effusion — RV diastolic collapse — Beck triad developing"},pacer:false,proc:'idle',
+     info:"<b>Moderate effusion (~250 mL) — early tamponade physiology.</b> RV free wall diastolic collapse on echo. Beck's triad evolving. Electrical alternans. Pericardial pressure approaching RA pressure. Admit for monitoring. <span class='pill py'>Moderate</span>"},
+    {id:3,lbl:"Cardiac Tamponade",badge:"Tamponade",hr:130,bp:80,spo2:88,ef:42,flow:1.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Electrical Alternans",risk:92,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"EMERGENCY",alert:{c:"ac",t:"Cardiac tamponade — obstructive shock — pericardiocentesis NOW"},pacer:false,ecgOvr:"Alternans",proc:'idle',
+     info:"<b>Cardiac tamponade — haemodynamic emergency.</b> Pericardial pressure > RV diastolic pressure. Obstructive shock. Pulsus paradoxus &gt;20 mmHg. Electrical alternans. Immediate echo-guided pericardiocentesis mandatory. <span class='pill pr'>EMERGENCY</span>"},
+    {id:4,lbl:"Needle Entry",badge:"Needle In",hr:118,bp:88,spo2:91,ef:44,flow:2.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",risk:72,rLbl:"High",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Draining",alert:{c:"aw",t:"16G needle subxiphoid — advancing toward pericardial sac"},pacer:false,proc:'needle',
+     info:"<b>Echo-guided pericardiocentesis — subxiphoid approach.</b> 16G needle inserted below xiphoid at 45°, aiming toward left shoulder. Echo tracks needle in real time. Needle traverses: skin → subcutaneous fat → diaphragm → pericardial sac. Aspiration of haemoserous fluid confirms entry. <span class='pill po'>Needle In</span>"},
+    {id:5,lbl:"Pigtail Drain + Drainage",badge:"Draining",hr:100,bp:102,spo2:95,ef:50,flow:3.0,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",risk:50,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Draining",alert:{c:"aw",t:"Pericardiocentesis active — 280 mL drained — haemodynamics improving"},pacer:false,proc:'drain',
+     info:"<b>J-wire → serial dilators → 8.5Fr pigtail catheter in pericardial space.</b> 280 mL haemoserous fluid drained. Pericardial pressure 25→5 mmHg. BP improving. RV collapse resolving. Fluid sent for cytology, culture. <span class='pill po'>Draining</span>"},
+    {id:6,lbl:"Resolution / Follow-Up",badge:"Resolved",hr:72,bp:118,spo2:99,ef:62,flow:4.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:10,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Resolved",alert:null,pacer:false,proc:'idle',
+     info:"<b>Effusion resolved — drain removed at 48h.</b> Trivial residual 5 mm. Aetiology: idiopathic (40%), viral. Colchicine 3 months. Echo at 1 and 3 months. <span class='pill pg'>Resolved</span>"},
+  ]},
+
+  endocarditis:{name:"Infective Endocarditis",ecg:"normal",stages:[
+    {id:1,lbl:"Bacteraemia / Seeding",badge:"Early IE",hr:92,bp:134,spo2:96,ef:60,flow:3.8,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:48,rLbl:"Moderate",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"IE Suspect",alert:{c:"aw",t:"Fever + new murmur + bacteraemia — Duke criteria — blood cultures x3"},pacer:false,proc:'idle',
+     info:"<b>Suspected infective endocarditis.</b> Modified Duke criteria: 1 major + 2 minor. S. aureus bacteraemia. 3 blood cultures before antibiotics. Echo within 24h. <span class='pill py'>IE Suspect</span>"},
+    {id:2,lbl:"Vegetation on Mitral Valve",badge:"Confirmed",hr:106,bp:116,spo2:93,ef:54,flow:3.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:70,rLbl:"High",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Confirmed IE",alert:{c:"ac",t:"12 mm mitral vegetation — embolic risk HIGH — antibiotic therapy NOW"},pacer:false,proc:'vegetation',
+     info:"<b>TOE confirms 12 mm posterior mitral leaflet vegetation.</b> S. aureus MSSA — flucloxacillin 2g IV Q4H + gentamicin. Embolic stroke risk 15–35%/year with vegetation &gt;10 mm. Surgery review at 1 week. <span class='pill pr'>Confirmed IE</span>"},
+    {id:3,lbl:"Septic Emboli",badge:"Emboli",hr:118,bp:102,spo2:90,ef:48,flow:2.6,pat:100,sten:0,lumen:"3.8mm",rhythm:"Sinus Tachycardia",risk:85,rLbl:"Critical",rClr:"var(--red)",rBg:"rgba(232,64,64,.1)",rBdr:"rgba(232,64,64,.35)",rTag:"Emboli",alert:{c:"ac",t:"Septic emboli — splenic infarct + renal — urgent surgical review"},pacer:false,proc:'vegetation',
+     info:"<b>Septic embolic events.</b> Splenic and renal infarcts. Vegetation now 16 mm — surgical indication. WBC 22, CRP 280, procalcitonin 8.4. Blood cultures persistent positive at 72h. <span class='pill pr'>Emboli</span>"},
+    {id:4,lbl:"Valve Surgery (MVR)",badge:"MVR",hr:88,bp:108,spo2:95,ef:50,flow:3.4,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:56,rLbl:"High",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"Post-MVR",alert:{c:"aw",t:"Mitral valve replacement — mechanical valve — INR target 2.5–3.5"},pacer:false,proc:'mvr',
+     info:"<b>Emergency mitral valve replacement (MVR).</b> Vegetation excised, posterior leaflet reconstructed, 29mm St Jude mechanical prosthesis implanted. Annular abscess debrided. Post-op antibiotics 6 weeks. <span class='pill pb'>Post-MVR</span>"},
+    {id:5,lbl:"Antibiotic Completion",badge:"W4",hr:76,bp:114,spo2:97,ef:55,flow:4.2,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:28,rLbl:"Low-Mod",rClr:"var(--yellow)",rBg:"rgba(240,165,0,.08)",rBdr:"rgba(240,165,0,.25)",rTag:"W4 Abx",alert:{c:"ai",t:"Week 4 IV antibiotics — PICC line — CRP normalising"},pacer:false,proc:'idle',
+     info:"<b>Week 4 of 6-week IV antibiotics.</b> Flucloxacillin 2g IV Q4H via PICC. CRP 18 (↓ from 280). Blood cultures negative x5. Mechanical valve functioning well. INR 2.8. <span class='pill py'>W4 Abx</span>"},
+    {id:6,lbl:"Cure — Long-term F/U",badge:"Cured",hr:70,bp:116,spo2:99,ef:60,flow:4.7,pat:100,sten:0,lumen:"3.8mm",rhythm:"Regular",risk:12,rLbl:"Low",rClr:"var(--green)",rBg:"rgba(46,204,113,.08)",rBdr:"rgba(46,204,113,.25)",rTag:"Cured",alert:null,pacer:false,proc:'idle',
+     info:"<b>IE cured — 6-week antibiotics completed.</b> CRP normal, cultures negative. Lifelong anticoagulation. Dental prophylaxis mandatory. Recurrence risk 3–5%/year. Annual echo. <span class='pill pg'>Cured</span>"},
+  ]},
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  APP STATE
+// ═══════════════════════════════════════════════════════════════════════
+let activeKey='cad', stageIdx=0, ecgRate=72, ecgMode='normal';
+let beatOn=true, rotateOn=false, wireOn=false, xrayOn=false, glowOn=true;
+let hrManual=null, currentView='beat', targetBeatSpd=1.0;
+const SHORT={cad:'CAD',pacemaker:'Pacer',afib:'AF',stemi:'STEMI',hf:'Heart Fail',valve:'Valve',hcm:'HCM',tamponade:'Tamponade',endocarditis:'Endocarditis'};
+
+// ─── Disease tabs ───
+function renderTabs(){
+  document.getElementById('disTabs').innerHTML=
+    Object.keys(DISEASES).map(k=>`<button class="dtab${k===activeKey?' active':''}" onclick="switchDis('${k}')">${SHORT[k]}</button>`).join('');
+}
+function switchDis(k){ activeKey=k; stageIdx=0; renderTabs(); applyStage(0); }
+
+// ─── Stage list ───
+function renderStages(){
+  const stages=DISEASES[activeKey].stages;
+  document.getElementById('stageList').innerHTML=stages.map((s,i)=>`
+    <button class="stg-btn ${i===stageIdx?'active':i<stageIdx?'done':''}" onclick="goStage(${i})">
+      <div class="stg-dot"></div><span>${s.lbl}</span>
+      <span class="stg-badge">${s.badge}</span>
+    </button>`).join('');
+}
+
+// ─── Apply stage ───
+function applyStage(i){
+  stageIdx=i;
+  const D=DISEASES[activeKey], s=D.stages[i];
+  document.getElementById('rpModule').textContent=D.name;
+  document.getElementById('vpTitle').textContent=`${D.name} — ${s.lbl}`;
+  const hr=hrManual!==null?hrManual:s.hr;
+  setVital('vHR','vc-hr',hr,hr>100?'vr':hr>86?'vy':'vg',hr>100?'red':hr>86?'yellow':'green');
+  setVital('vBP','vc-bp',s.bp,s.bp>150?'vr':s.bp>135?'vy':'vb',s.bp>150?'red':s.bp>135?'yellow':'blue');
+  setVital('vSPO2','vc-spo2',s.spo2,s.spo2<92?'vr':s.spo2<95?'vy':'vg',s.spo2<92?'red':s.spo2<95?'yellow':'green');
+  setVital('vEF','vc-ef',s.ef,s.ef<35?'vr':s.ef<50?'vy':'vc',s.ef<35?'red':s.ef<50?'yellow':'cyan');
+  ecgRate=hrManual!==null?hrManual:s.hr;
+  ecgMode=s.ecgOvr?'_ovr':D.ecg;
+  const ecgLbls={normal:'NSR',afib:'AF — Irreg',paced:'Paced',lbbb:'LBBB',stemi:'ST-Elevation',_ovr:s.ecgOvr||''};
+  const ecgClrs={normal:'var(--green)',afib:'var(--yellow)',paced:'var(--purple)',lbbb:'var(--blue)',stemi:'var(--red)',_ovr:'var(--muted2)'};
+  const eb=document.getElementById('ecgBadge');
+  eb.textContent=ecgLbls[ecgMode]; eb.style.color=ecgClrs[ecgMode]; eb.style.borderColor=ecgClrs[ecgMode]+'44';
+  document.getElementById('riskBar').style.width=s.risk+'%';
+  document.getElementById('riskBar').style.background=s.rClr;
+  const rn=document.getElementById('riskNum'); rn.textContent=s.rLbl; rn.style.color=s.rClr;
+  const rt=document.getElementById('riskTag'); rt.textContent=s.rTag; rt.style.color=s.rClr; rt.style.background=s.rBg; rt.style.borderColor=s.rBdr;
+  const ab=document.getElementById('alertBar');
+  if(s.alert){ab.className=`alert-bar show ${s.alert.c}`;document.getElementById('alertTxt').textContent=s.alert.t;}
+  else ab.className='alert-bar';
+  const pw=document.getElementById('pacerWidget');
+  if(s.pacer){pw.classList.add('show');document.getElementById('pacerRate').textContent=s.pacerRate||70;}
+  else pw.classList.remove('show');
+  document.getElementById('hdLumen').textContent=s.lumen;
+  document.getElementById('hdPat').textContent=s.pat+'%';
+  document.getElementById('hcPat').className='hchip'+(s.pat<50?' crit':s.pat<80?' warn':' ok');
+  document.getElementById('hdSten').textContent=s.sten+'%';
+  document.getElementById('hcSten').className='hchip'+(s.sten>70?' crit':s.sten>30?' warn':' ok');
+  document.getElementById('hdFlow').textContent=(s.flow||5).toFixed(1)+' L/min';
+  document.getElementById('hcFlow').className='hchip'+(s.flow<2?' crit':s.flow<3.5?' warn':' ok');
+  document.getElementById('hdRhythm').textContent=s.rhythm||'Regular';
+  document.getElementById('notesBody').innerHTML=s.info;
+  drawVessel(s);
+  targetBeatSpd=s.hr/72;
+  renderStages();
+  if(typeof triggerProcedure==='function'&&bScene) triggerProcedure(s.proc||'idle');
+}
+function setVital(valId,cardId,val,valCls,cardClr){
+  document.getElementById(valId).textContent=val;
+  document.getElementById(valId).className='v-val '+valCls;
+  document.getElementById(cardId).className='vcard vc-'+cardClr;
+}
+function goStage(i){ applyStage(i); }
+function nextStep(){ const L=DISEASES[activeKey].stages.length; if(stageIdx<L-1)applyStage(stageIdx+1); }
+function prevStep(){ if(stageIdx>0)applyStage(stageIdx-1); }
+function hrOverride(v){
+  hrManual=parseInt(v);
+  document.getElementById('hrDisplay').textContent=v;
+  document.getElementById('hrSlider').style.setProperty('--pct',((v-30)/(200-30)*100).toFixed(1)+'%');
+  applyStage(stageIdx);
+}
+
+// ─── Vessel SVG ───
+function drawVessel(s){
+  const svg=document.getElementById('vesselSvg'); if(!svg)return;
+  const cx=55,cy=50,oR=32,maxPl=22;
+  const pR=(s.sten/100)*maxPl, iR=oR-pR;
+  let h=`<rect width="110" height="96" fill="#06080e"/>`;
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${oR+4}" ry="${oR+4}" fill="#160808" stroke="#5a1515" stroke-width="1.2"/>`;
+  if(pR>1){const pc=s.sten>70?'#c8950e':'#b07e0a';h+=`<ellipse cx="${cx}" cy="${cy}" rx="${oR+2}" ry="${oR+2}" fill="${pc}" opacity=".88"/>`;h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR+1.5}" ry="${iR+1.5}" fill="#06080e"/>`;}
+  if(s.balloon){h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR+4}" ry="${iR+4}" fill="none" stroke="#3b9eff" stroke-width="1.4" stroke-dasharray="3 2" opacity=".75"/>`;h+=`<line x1="${cx}" y1="${cy-iR-12}" x2="${cx}" y2="${cy-iR-2}" stroke="#3b9eff" stroke-width="1" opacity=".5"/>`;}
+  if(s.stent){const sr=iR+2.5;for(let a=0;a<360;a+=30){const r=a*Math.PI/180;const x1=cx+(sr-3)*Math.cos(r),y1=cy+(sr-3)*Math.sin(r);const x2=cx+sr*Math.cos(r+15*Math.PI/180),y2=cy+sr*Math.sin(r+15*Math.PI/180);const x3=cx+(sr-3)*Math.cos(r+30*Math.PI/180),y3=cy+(sr-3)*Math.sin(r+30*Math.PI/180);h+=`<polyline points="${x1},${y1} ${x2},${y2} ${x3},${y3}" fill="none" stroke="#a0b4c8" stroke-width=".9" opacity=".9"/>`;}}
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR}" ry="${iR}" fill="#0c040f"/>`;
+  const n=Math.round((s.flow||5)/5*18);
+  for(let i=0;i<n;i++){const a=(i/n)*2*Math.PI,r2=(iR-3)*Math.sqrt(Math.random());const px=cx+r2*Math.cos(a+Math.random()*.6),py=cy+r2*Math.sin(a+Math.random()*.6);h+=`<circle cx="${px}" cy="${py}" r="${1.1+Math.random()*1.5}" fill="#e84040" opacity="${.35+Math.random()*.55}"/>`;}
+  h+=`<ellipse cx="${cx}" cy="${cy}" rx="${iR}" ry="${iR}" fill="none" stroke="#e84040" stroke-width=".5" opacity=".22"/>`;
+  h+=`<text x="3" y="92" font-size="7.5" fill="#3a4a68" font-family="JetBrains Mono,monospace">LAD  ${s.sten}% stenosis</text>`;
+  svg.innerHTML=h;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ECG ENGINE
+// ═══════════════════════════════════════════════════════════════════════
+const ecgCv=document.getElementById('ecgCanvas');
+const ecgCx=ecgCv.getContext('2d');
+let ecgBuf=new Array(135).fill(.5), ecgPh=0;
+
+function ecgSample(t,mode){
+  const m=t%1;
+  if(mode==='afib'){const n=.048*Math.sin(t*52.3)+.032*Math.sin(t*79.1)+.018*Math.sin(t*118.7)+.009*Math.sin(t*207);if(m<.03)return .5+.52*Math.sin(m/.03*Math.PI)+n;if(m<.07)return .5-.11*Math.sin((m-.03)/.04*Math.PI)+n;if(m<.2)return .5+.07*Math.sin((m-.07)/.13*Math.PI)+n;return .5+n;}
+  if(mode==='paced'){if(m<.012)return .5+1.05;if(m<.018)return .5-.35;if(m<.06)return .5+.06;if(m<.13)return .5+.62*Math.sin((m-.06)/.07*Math.PI);if(m<.3)return .5+.1*Math.sin((m-.13)/.17*Math.PI);return .5;}
+  if(mode==='lbbb'){if(m<.04)return .5+.05*Math.sin(m/.04*Math.PI);if(m<.07)return .5-.1*Math.sin((m-.04)/.03*Math.PI);if(m<.14)return .5+.5*Math.sin((m-.07)/.07*Math.PI);if(m<.21)return .5+.38*Math.sin((m-.14)/.07*Math.PI+.45);if(m<.25)return .5-.1*Math.sin((m-.21)/.04*Math.PI);if(m<.38)return .5+.11*Math.sin((m-.25)/.13*Math.PI);return .5;}
+  if(mode==='stemi'){if(m<.05)return .5+.06*Math.sin(m/.05*Math.PI);if(m<.08)return .5-.09*Math.sin((m-.05)/.03*Math.PI);if(m<.11)return .5+.92*Math.sin((m-.08)/.03*Math.PI);if(m<.14)return .5-.24*Math.sin((m-.11)/.03*Math.PI);if(m<.29)return .5+.3-(m-.14)*1.0;if(m<.44)return .5+.18*Math.sin((m-.29)/.15*Math.PI*.8);return .5;}
+  if(m<.05)return .5+.055*Math.sin(m/.05*Math.PI);if(m<.08)return .5-.085*Math.sin((m-.05)/.03*Math.PI);if(m<.11)return .5+.84*Math.sin((m-.08)/.03*Math.PI);if(m<.14)return .5-.23*Math.sin((m-.11)/.03*Math.PI);if(m<.27)return .5+.16*Math.sin((m-.14)/.13*Math.PI);return .5;
+}
+const ECG_C={normal:'#2ecc71',afib:'#f0a500',paced:'#a855f7',lbbb:'#3b9eff',stemi:'#e84040',_ovr:'#6b7fa8'};
+function drawECG(){
+  const w=ecgCv.width,h=ecgCv.height;
+  ecgCx.fillStyle='#06080e'; ecgCx.fillRect(0,0,w,h);
+  ecgCx.strokeStyle='rgba(46,204,113,.12)'; ecgCx.lineWidth=.5;
+  for(let x=0;x<w;x+=13){ecgCx.beginPath();ecgCx.moveTo(x,0);ecgCx.lineTo(x,h);ecgCx.stroke();}
+  for(let y=0;y<h;y+=13){ecgCx.beginPath();ecgCx.moveTo(0,y);ecgCx.lineTo(w,y);ecgCx.stroke();}
+  const modeKey=ecgMode==='_ovr'?'normal':ecgMode;
+  const irr=modeKey==='afib'?(.7+Math.random()*.65):1;
+  ecgPh+=(ecgRate/60)*1.25*irr*.016;
+  ecgBuf.shift(); ecgBuf.push(ecgSample(ecgPh,modeKey));
+  const col=ECG_C[modeKey]||ECG_C.normal;
+  ecgCx.beginPath(); ecgCx.strokeStyle=col; ecgCx.lineWidth=1.7;
+  ecgCx.shadowColor=col; ecgCx.shadowBlur=4;
+  ecgBuf.forEach((v,i)=>{const x=i*2,y=h-v*h*.88-h*.05;i===0?ecgCx.moveTo(x,y):ecgCx.lineTo(x,y);});
+  ecgCx.stroke(); ecgCx.shadowBlur=0;
+}
+setInterval(drawECG,16);
+
+// ═══════════════════════════════════════════════════════════════════════
+//  BABYLON — 3D ENGINE
+// ═══════════════════════════════════════════════════════════════════════
+let engine, bScene, heartRoot=null, heartAnat=null;
+let beatPh=0, animT=0, beatSpd=1.0;
+let glowLayer=null, highlightLayer=null;
+let beatMeshes=[], anatMeshes=[];
+let beatBaseScale=1, anatBaseScale=1, beatCenterY=0, anatCenterY=0;
+let surgLight1=null, surgLight2=null;
+let bloodPS=null, smokePS=null, sparkPS=null, fluidPS=null;
+let orEnv={};
+
+// ── Procedure tool nodes ──
+// Each is a TransformNode that parents visible meshes for that tool
+let tools={};           // map of name→TransformNode/mesh
+let procedureMode='idle';
+let toolT=0;            // time since procedure activated
+let procPhase=0;        // sub-phase within procedure
+let phaseTimer=0;
+let stentDeployed=false, ablationActive=false;
+
+// ── Material cache ──
+const _mats={};
+function pbr(nm,albedo,rough,metal,emis,alpha){
+  if(_mats[nm])return _mats[nm];
+  const m=new BABYLON.PBRMaterial(nm,bScene);
+  m.albedoColor=new BABYLON.Color3(...albedo);
+  m.roughness=rough; m.metallic=metal;
+  if(emis)m.emissiveColor=new BABYLON.Color3(...emis);
+  if(alpha!=null){m.alpha=alpha;m.transparencyMode=BABYLON.PBRMaterial.PBRMATERIAL_ALPHABLEND;m.backFaceCulling=false;}
+  return _mats[nm]=m;
+}
+
+// ─────────────────────────────────────
+//  PHASE OVERLAY
+// ─────────────────────────────────────
+const PHASE_LABELS={
+  // cathpci phases
+  'cathpci-0':'Guiding catheter seated in coronary ostium',
+  'cathpci-1':'0.014″ guidewire crossing stenosis',
+  'cathpci-2':'Wire across lesion — catheter tracking',
+  // balloon
+  'balloon-0':'Balloon catheter advanced to lesion site',
+  'balloon-1':'Balloon inflating — 8 atm — plaque fracturing',
+  'balloon-2':'Balloon at 12 atm — full inflation — lumen restored',
+  'balloon-3':'Balloon deflated — catheter withdrawn',
+  // stent
+  'stent-0':'DES crimped on balloon, delivered to lesion',
+  'stent-1':'Balloon inflating — scaffold expanding radially',
+  'stent-2':'Stent deployed — pressed against vessel wall',
+  // ablation
+  'ablation-0':'Transseptal access — LA entered via fossa ovalis',
+  'ablation-1':'RF catheter mapping pulmonary vein ostia',
+  'ablation-2':'RF energy 35W — burning circumferential lesion',
+  'ablation-3':'Bidirectional block confirmed — PVI complete',
+  // pacing
+  'pacing-0':'Lead entering subclavian vein',
+  'pacing-1':'Threading: SVC → right atrium → tricuspid valve',
+  'pacing-2':'RV apex — helix screw fixating in myocardium',
+  'pacing-3':'Lead fixed — parameters confirmed — pulse generator',
+  // needle
+  'needle-0':'16G needle at subxiphoid angle 45°',
+  'needle-1':'Needle advancing through diaphragm',
+  'needle-2':'Needle in pericardial space — aspiration confirmed',
+  // drain
+  'drain-0':'J-wire into pericardial sac',
+  'drain-1':'Serial dilators over wire',
+  'drain-2':'8.5Fr pigtail catheter draining haemoserous fluid',
+  // misc
+  'vegetation-0':'Vegetation visible on mitral valve — septic emboli',
+  'dccv-0':'R-wave synchronised 200J shock depolarising atria',
+  'mvr-0':'Vegetation excised — valve seat prepared — prosthesis placed',
+  'mitraclip-0':'MitraClip grasping A2-P2 leaflet junction',
+  'asa-0':'Catheter in 1st septal perforator — ethanol injection',
+  'generator-0':'Sub-pectoral pocket — lead connected — device programmed',
+};
+const PHASE_CLS={cathpci:'ph-cath',balloon:'ph-cath',stent:'ph-cath',ablation:'ph-abl',dccv:'ph-abl',mitraclip:'ph-abl',mvr:'ph-crit',pacing:'ph-pac',generator:'ph-pac',vein_access:'ph-pac',needle:'ph-nee',drain:'ph-nee',vegetation:'ph-crit',asa:'ph-abl'};
+
+function setPhaseOverlay(proc,phase){
+  const el=document.getElementById('phaseOverlay');
+  const key=`${proc}-${phase}`;
+  const txt=PHASE_LABELS[key];
+  if(txt){
+    el.textContent=txt;
+    el.className='show '+(PHASE_CLS[proc]||'ph-cath');
+  } else {
+    el.className='';
+  }
+}
+
+function initBabylon(){
+  const canvas=document.getElementById('renderCanvas');
+  engine=new BABYLON.Engine(canvas,true,{preserveDrawingBuffer:true,stencil:true,adaptToDeviceRatio:true});
+  bScene=new BABYLON.Scene(engine);
+  bScene.clearColor=new BABYLON.Color4(0.02,0.025,0.04,1);
+
+  // ── Camera ──
+  const cam=new BABYLON.ArcRotateCamera('cam',-Math.PI/2,Math.PI/2.4,6.0,BABYLON.Vector3.Zero(),bScene);
+  cam.lowerRadiusLimit=2.5; cam.upperRadiusLimit=14;
+  cam.lowerBetaLimit=0.3; cam.upperBetaLimit=Math.PI/1.85;
+  cam.wheelPrecision=35; cam.pinchPrecision=70;
+  cam.attachControl(canvas,true);
+  window._bCam=cam;
+
+  // ── IBL ──
+  const envTex=BABYLON.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env',bScene);
+  bScene.environmentTexture=envTex; bScene.environmentIntensity=0.18;
+
+  // ── OR Lights ──
+  const sl1=new BABYLON.SpotLight('sl1',new BABYLON.Vector3(-1.2,5,0.5),new BABYLON.Vector3(0.15,-1,-0.05),0.55,1.8,bScene);
+  sl1.diffuse=new BABYLON.Color3(1,.98,.92); sl1.intensity=220; surgLight1=sl1;
+  const sl2=new BABYLON.SpotLight('sl2',new BABYLON.Vector3(1.4,5,-0.3),new BABYLON.Vector3(-0.12,-1,0.04),0.52,1.8,bScene);
+  sl2.diffuse=new BABYLON.Color3(1,.97,.90); sl2.intensity=200; surgLight2=sl2;
+  const hemi=new BABYLON.HemisphericLight('hemi',new BABYLON.Vector3(0,1,0),bScene);
+  hemi.intensity=0.08; hemi.diffuse=new BABYLON.Color3(.6,.7,1); hemi.groundColor=new BABYLON.Color3(.05,.05,.08);
+  const pt=new BABYLON.PointLight('pt',new BABYLON.Vector3(0,0.2,.3),bScene);
+  pt.intensity=3.5; pt.diffuse=new BABYLON.Color3(1,.08,.08); pt.range=5; window._ptLight=pt;
+
+  // ── Effects ──
+  glowLayer=new BABYLON.GlowLayer('glow',bScene);
+  glowLayer.intensity=0.7; glowLayer.blurKernelSize=48;
+  highlightLayer=new BABYLON.HighlightLayer('hl',bScene);
+
+  buildOREnvironment();
+  buildAllTools();
+  buildAllParticles();
+  loadModels();
+
+  engine.runRenderLoop(()=>{ renderLoop(); bScene.render(); });
+  window.addEventListener('resize',()=>engine.resize());
+}
+
+// ═══════════════════════════════════════
+//  OR ENVIRONMENT
+// ═══════════════════════════════════════
+function buildOREnvironment(){
+  const table=BABYLON.MeshBuilder.CreateBox('table',{width:5,height:.12,depth:2.2},bScene);
+  table.position.y=-1.85; table.material=pbr('tableMat',[.12,.14,.18],.85,.02,[.02,.025,.03]); orEnv.table=table;
+  [[-1.8,-1.8],[-1.8,1.8],[1.8,-1.8],[1.8,1.8]].forEach((xz,i)=>{
+    const leg=BABYLON.MeshBuilder.CreateCylinder('leg'+i,{diameter:.07,height:2.4,tessellation:8},bScene);
+    leg.position=new BABYLON.Vector3(xz[0],-3.05,xz[1]); leg.material=pbr('steelMat',[.55,.57,.6],.2,.9);
+  });
+  const drape=BABYLON.MeshBuilder.CreateBox('drape',{width:4.8,height:.015,depth:2.0},bScene);
+  drape.position.y=-1.78; drape.material=pbr('drapeMat',[.04,.18,.22],.92,.0,[.008,.035,.04],.96);
+
+  // Sternal retractors
+  const retMat=pbr('retMat',[.6,.62,.65],.18,.92,[.04,.045,.05]);
+  const retL=BABYLON.MeshBuilder.CreateBox('retL',{width:.06,height:.08,depth:1.4},bScene);
+  retL.position=new BABYLON.Vector3(-1.65,-1.6,0); retL.material=retMat;
+  const retR=BABYLON.MeshBuilder.CreateBox('retR',{width:.06,height:.08,depth:1.4},bScene);
+  retR.position=new BABYLON.Vector3(1.65,-1.6,0); retR.material=retMat;
+  const bar=BABYLON.MeshBuilder.CreateCylinder('retBar',{diameter:.04,height:3.35,tessellation:10},bScene);
+  bar.rotation.z=Math.PI/2; bar.position.y=-1.55; bar.material=retMat;
+  [[-1.2,.55],[1.2,.55],[-1.2,-.55],[1.2,-.55]].forEach((xz,i)=>{
+    const hook=BABYLON.MeshBuilder.CreateCylinder('hook'+i,{diameter:.03,height:.32,tessellation:8},bScene);
+    hook.position=new BABYLON.Vector3(xz[0],-1.68,xz[1]); hook.material=retMat;
+  });
+
+  // Floor
+  const floor=BABYLON.MeshBuilder.CreateGround('floor',{width:18,height:18},bScene);
+  floor.position.y=-5.5;
+  const fMat=new BABYLON.StandardMaterial('floorMat',bScene);
+  fMat.diffuseColor=new BABYLON.Color3(.06,.07,.09); fMat.specularColor=new BABYLON.Color3(.04,.04,.05);
+  floor.material=fMat;
+
+  // Surgical light rigs
+  const rigMat=pbr('rigMat',[.75,.75,.78],.15,.88);
+  [-1.2,1.4].forEach((x,i)=>{
+    const disc=BABYLON.MeshBuilder.CreateCylinder('disc'+i,{diameter:1.1,height:.12,tessellation:32},bScene);
+    disc.position=new BABYLON.Vector3(x,5.2,i===0?.5:-.3); disc.material=rigMat;
+    const ring=BABYLON.MeshBuilder.CreateTorus('ring'+i,{diameter:.85,thickness:.04,tessellation:48},bScene);
+    ring.position=new BABYLON.Vector3(x,5.08,i===0?.5:-.3);
+    ring.material=pbr('rMat'+i,[1,.98,.9],.3,.0,[1,.96,.85]);
+    if(glowLayer)glowLayer.addIncludedOnlyMesh(ring);
+    const arm=BABYLON.MeshBuilder.CreateCylinder('arm'+i,{diameter:.05,height:1.8,tessellation:8},bScene);
+    arm.position=new BABYLON.Vector3(x,6.0,i===0?.5:-.3); arm.material=rigMat;
+  });
+
+  // Background equipment
+  const bypass=BABYLON.MeshBuilder.CreateBox('bypass',{width:.9,height:2.2,depth:.55},bScene);
+  bypass.position=new BABYLON.Vector3(-4.,-.8,-2.2); bypass.material=pbr('eqMat',[.12,.13,.16],.7,.05,[.015,.018,.022]);
+  const mon=BABYLON.MeshBuilder.CreateBox('monitor',{width:.7,height:1.6,depth:.4},bScene);
+  mon.position=new BABYLON.Vector3(4.2,-.4,-1.8); mon.material=pbr('monMat',[.05,.08,.12],.5,.1,[.0,.2,.35],.95);
+  if(glowLayer)glowLayer.addIncludedOnlyMesh(mon);
+  const ivPole=BABYLON.MeshBuilder.CreateCylinder('ivpole',{diameter:.03,height:4.,tessellation:8},bScene);
+  ivPole.position=new BABYLON.Vector3(3.5,.2,1.5); ivPole.material=pbr('ivMat',[.7,.72,.75],.18,.88);
+  const ivBag=BABYLON.MeshBuilder.CreateBox('ivbag',{width:.2,height:.32,depth:.06},bScene);
+  ivBag.position=new BABYLON.Vector3(3.5,2.35,1.5); ivBag.material=pbr('ivBagMat',[.5,.9,.95],.4,.0,[.05,.22,.28],.7);
+}
+
+// ═══════════════════════════════════════
+//  ALL PROCEDURE TOOLS
+//  Each tool uses a parent TransformNode with anatomically correct geometry
+// ═══════════════════════════════════════
+function buildAllTools(){
+  const steelMat=pbr('toolSteel',[.65,.68,.72],.12,.95,[.06,.07,.08]);
+  const goldMat=pbr('toolGold',[.9,.78,.2],.18,.75,[1,.85,.1]);
+  const purpleMat=pbr('toolPurple',[.5,.25,.72],.2,.6,[.25,.08,.55]);
+  const blueMat=pbr('toolBlue',[.15,.45,.85],.25,.5,[.05,.18,.45],.7);
+  const orangeMat=pbr('toolOrange',[1,.4,.05],.2,.4,[1,.5,.05]);
+
+  // ─── 1. GUIDEWIRE — very thin, 6 units long, horizontal ───
+  // Enters from patient's right (screen-right) aimed at heart center
+  {
+    const node=new BABYLON.TransformNode('gwNode',bScene);
+    const wire=BABYLON.MeshBuilder.CreateCylinder('guidewire',{diameter:.012,height:6.0,tessellation:6},bScene);
+    wire.rotation.z=Math.PI/2; wire.parent=node;
+    wire.material=steelMat;
+    // Floppy tip — small gold sphere
+    const tip=BABYLON.MeshBuilder.CreateSphere('gwTip',{diameter:.04,segments:6},bScene);
+    tip.parent=node; tip.position.x=-3.0; // at the far left (heart) end
+    tip.material=goldMat;
+    if(glowLayer){glowLayer.addIncludedOnlyMesh(wire);glowLayer.addIncludedOnlyMesh(tip);}
+    node.position=new BABYLON.Vector3(6,0.05,0.1);   // starts off-screen right
+    node.setEnabled(false);
+    tools.guidewire=node;
+  }
+
+  // ─── 2. CATHETER BODY — thicker tube that tracks over the wire ───
+  {
+    const node=new BABYLON.TransformNode('cathNode',bScene);
+    const body=BABYLON.MeshBuilder.CreateCylinder('cathBody',{diameter:.048,height:4.5,tessellation:10},bScene);
+    body.rotation.z=Math.PI/2; body.parent=node;
+    body.material=pbr('cathBodyMat',[.55,.58,.62],.2,.85,[.03,.04,.05]);
+    // Radiopaque tip band (gold ring at tip)
+    const tipBand=BABYLON.MeshBuilder.CreateCylinder('cathTipBand',{diameter:.052,height:.08,tessellation:10},bScene);
+    tipBand.rotation.z=Math.PI/2; tipBand.position.x=-2.25; tipBand.parent=node;
+    tipBand.material=goldMat;
+    if(glowLayer){glowLayer.addIncludedOnlyMesh(tipBand);}
+    node.position=new BABYLON.Vector3(7,0.05,0.1);
+    node.setEnabled(false);
+    tools.catheter=node;
+  }
+
+  // ─── 3. BALLOON — squished sphere that inflates at lesion site ───
+  {
+    const node=new BABYLON.TransformNode('balloonNode',bScene);
+    const ball=BABYLON.MeshBuilder.CreateSphere('balloon',{diameter:1,segments:14},bScene);
+    ball.scaling=new BABYLON.Vector3(.01,.01,.01);
+    ball.parent=node;
+    ball.material=blueMat;
+    if(glowLayer)glowLayer.addIncludedOnlyMesh(ball);
+    node.position=new BABYLON.Vector3(0,.05,.15);
+    node.setEnabled(false);
+    tools.balloon=node; tools.balloonSphere=ball;
+  }
+
+  // ─── 4. STENT — ring lattice scaffold ───
+  {
+    const node=new BABYLON.TransformNode('stentNode',bScene);
+    const stMat=pbr('stentMat',[.72,.75,.78],.12,.95,[.12,.15,.18]);
+    for(let i=0;i<14;i++){
+      const ang=i/14*Math.PI*2;
+      const bar=BABYLON.MeshBuilder.CreateCylinder('stbar'+i,{diameter:.014,height:.36,tessellation:6},bScene);
+      bar.parent=node;
+      bar.position=new BABYLON.Vector3(Math.cos(ang)*.24,0,Math.sin(ang)*.24);
+      bar.rotation.x=Math.PI/2; bar.material=stMat;
+      if(glowLayer)glowLayer.addIncludedOnlyMesh(bar);
+    }
+    for(let i=0;i<7;i++){
+      const ang=i/7*Math.PI*2+Math.PI/14;
+      const link=BABYLON.MeshBuilder.CreateCylinder('stlink'+i,{diameter:.01,height:.48,tessellation:6},bScene);
+      link.parent=node; link.rotation.z=Math.PI/2; link.rotation.y=ang; link.material=stMat;
+    }
+    node.scaling=new BABYLON.Vector3(.05,1,.05);
+    node.position=new BABYLON.Vector3(0,.05,.15);
+    node.setEnabled(false);
+    tools.stent=node;
+  }
+
+  // ─── 5. ABLATION CATHETER — advances from below (transseptal / femoral) ───
+  {
+    const node=new BABYLON.TransformNode('ablNode',bScene);
+    const shaft=BABYLON.MeshBuilder.CreateCylinder('ablShaft',{diameter:.04,height:3.5,tessellation:10},bScene);
+    shaft.parent=node; shaft.material=pbr('ablShaftMat',[.2,.22,.25],.25,.85,[.04,.05,.06]);
+    // Irrigated tip (pulsing orange-white glow sphere)
+    const ablTip=BABYLON.MeshBuilder.CreateSphere('ablTip',{diameter:.09,segments:10},bScene);
+    ablTip.parent=node; ablTip.position.y=1.75; // top of shaft
+    ablTip.material=orangeMat;
+    if(glowLayer){glowLayer.addIncludedOnlyMesh(ablTip);}
+    // Smoke & spark emitters follow tip position
+    node.position=new BABYLON.Vector3(-.2,-3.5,.3);
+    node.rotation.x=0.1;
+    node.setEnabled(false);
+    tools.ablation=node; tools.ablTip=ablTip;
+  }
+
+  // ─── 6. PACING LEAD — thin, enters from subclavian (upper right) ───
+  {
+    const node=new BABYLON.TransformNode('leadNode',bScene);
+    // Lead shaft
+    const leadShaft=BABYLON.MeshBuilder.CreateCylinder('leadShaft',{diameter:.022,height:4.5,tessellation:8},bScene);
+    leadShaft.parent=node; leadShaft.material=purpleMat;
+    // Active fixation helix tip
+    const helix=BABYLON.MeshBuilder.CreateSphere('helixTip',{diameter:.055,segments:8},bScene);
+    helix.parent=node; helix.position.y=-2.25; helix.material=goldMat;
+    if(glowLayer){glowLayer.addIncludedOnlyMesh(leadShaft);glowLayer.addIncludedOnlyMesh(helix);}
+    // Starts off-screen upper-right (subclavian approach)
+    node.position=new BABYLON.Vector3(3.5,4,.0);
+    node.rotation.z=0.3; node.rotation.x=0.05;
+    node.setEnabled(false);
+    tools.pacing=node;
+  }
+
+  // ─── 7. PERICARDIOCENTESIS NEEDLE ───
+  // Subxiphoid approach: enters from below at 45° toward pericardial space
+  {
+    const node=new BABYLON.TransformNode('needleNode',bScene);
+    const needleShaft=BABYLON.MeshBuilder.CreateCylinder('needleShaft',{diameterTop:.018,diameterBottom:.032,height:3.0,tessellation:10},bScene);
+    needleShaft.parent=node; needleShaft.material=steelMat;
+    // Needle tip (sharp point)
+    const nTip=BABYLON.MeshBuilder.CreateCylinder('nTip',{diameterTop:.004,diameterBottom:.018,height:.12,tessellation:8},bScene);
+    nTip.parent=node; nTip.position.y=1.56; nTip.material=goldMat;
+    if(glowLayer){glowLayer.addIncludedOnlyMesh(needleShaft);glowLayer.addIncludedOnlyMesh(nTip);}
+    // Start position: below xiphoid
+    node.position=new BABYLON.Vector3(.1,-4.8,1.5);
+    node.rotation.x=-0.85; // 45° angle upward toward heart
+    node.setEnabled(false);
+    tools.needle=node;
+  }
+
+  // ─── 8. PIGTAIL DRAIN CATHETER ───
+  {
+    const node=new BABYLON.TransformNode('drainNode',bScene);
+    const drainShaft=BABYLON.MeshBuilder.CreateCylinder('drainShaft',{diameter:.05,height:2.8,tessellation:8},bScene);
+    drainShaft.parent=node;
+    drainShaft.material=pbr('drainMat',[.3,.55,.8],.3,.3,[.05,.15,.35],.8);
+    // Pigtail curl (small torus at tip)
+    const pigtail=BABYLON.MeshBuilder.CreateTorus('pigtail',{diameter:.12,thickness:.02,tessellation:20},bScene);
+    pigtail.parent=node; pigtail.position.y=1.4; pigtail.material=pbr('pgMat',[.3,.55,.8],.3,.3,[.04,.14,.32],.7);
+    if(glowLayer){glowLayer.addIncludedOnlyMesh(drainShaft);}
+    node.position=new BABYLON.Vector3(.1,-5.5,1.5);
+    node.rotation.x=-0.85;
+    node.setEnabled(false);
+    tools.drain=node;
+  }
+
+  // ─── 9. VEGETATION marker (glowing mass on mitral valve area) ───
+  {
+    const vegMat=pbr('vegMat',[.9,.45,.1],.6,.05,[.6,.25,.05]);
+    const veg=BABYLON.MeshBuilder.CreateSphere('veg',{diameter:.18,segments:8},bScene);
+    veg.material=vegMat;
+    // Position on anterior surface of heart (mitral valve region ~lower-left quadrant)
+    veg.position=new BABYLON.Vector3(-.3,-.25,.85);
+    veg.setEnabled(false);
+    if(glowLayer)glowLayer.addIncludedOnlyMesh(veg);
+    tools.vegetation=veg;
+    // Add a small satellite
+    const veg2=BABYLON.MeshBuilder.CreateSphere('veg2',{diameter:.1,segments:6},bScene);
+    veg2.material=vegMat; veg2.position=new BABYLON.Vector3(-.5,-.15,.82);
+    veg2.setEnabled(false); if(glowLayer)glowLayer.addIncludedOnlyMesh(veg2);
+    tools.vegetation2=veg2;
+  }
+
+  // ─── 10. EFFUSION SHELL — translucent sphere around heart for tamponade ───
+  {
+    const effMat=pbr('effMat',[.8,.88,.4],.2,.0,[.25,.35,.08],.08);
+    const effusion=BABYLON.MeshBuilder.CreateSphere('effusion',{diameter:3.8,segments:24},bScene);
+    effusion.material=effMat; effusion.setEnabled(false);
+    tools.effusion=effusion;
+  }
+}
+
+// ═══════════════════════════════════════
+//  PARTICLE SYSTEMS
+// ═══════════════════════════════════════
+function buildAllParticles(){
+  function makeTex(){ return new BABYLON.Texture('https://assets.babylonjs.com/textures/flare.png',bScene); }
+
+  // Blood ambient
+  bloodPS=new BABYLON.ParticleSystem('blood',400,bScene);
+  bloodPS.emitter=new BABYLON.Vector3(0,.1,.3);
+  bloodPS.minEmitBox=new BABYLON.Vector3(-.6,-.3,-.3); bloodPS.maxEmitBox=new BABYLON.Vector3(.6,.1,.3);
+  bloodPS.particleTexture=makeTex();
+  bloodPS.color1=new BABYLON.Color4(.95,.05,.05,.5); bloodPS.color2=new BABYLON.Color4(.7,.02,.02,.3); bloodPS.colorDead=new BABYLON.Color4(.3,.01,.01,0);
+  bloodPS.minSize=.018; bloodPS.maxSize=.055; bloodPS.minLifeTime=2.5; bloodPS.maxLifeTime=5;
+  bloodPS.emitRate=10; bloodPS.minEmitPower=.03; bloodPS.maxEmitPower=.1; bloodPS.updateSpeed=.008;
+  bloodPS.gravity=new BABYLON.Vector3(0,-.04,0); bloodPS.start();
+
+  // RF ablation smoke
+  smokePS=new BABYLON.ParticleSystem('smoke',120,bScene);
+  smokePS.emitter=new BABYLON.Vector3(-.2,.3,.3);
+  smokePS.minEmitBox=new BABYLON.Vector3(-.04,0,-.04); smokePS.maxEmitBox=new BABYLON.Vector3(.04,.02,.04);
+  smokePS.particleTexture=makeTex();
+  smokePS.color1=new BABYLON.Color4(.6,.55,.45,.15); smokePS.color2=new BABYLON.Color4(.7,.65,.55,.08); smokePS.colorDead=new BABYLON.Color4(.5,.5,.4,0);
+  smokePS.minSize=.06; smokePS.maxSize=.22; smokePS.minLifeTime=1.2; smokePS.maxLifeTime=3.;
+  smokePS.emitRate=0; smokePS.minEmitPower=.06; smokePS.maxEmitPower=.14; smokePS.updateSpeed=.01;
+  smokePS.gravity=new BABYLON.Vector3(0,.08,0); smokePS.start();
+
+  // RF sparks
+  sparkPS=new BABYLON.ParticleSystem('sparks',80,bScene);
+  sparkPS.emitter=new BABYLON.Vector3(-.2,.25,.3);
+  sparkPS.minEmitBox=new BABYLON.Vector3(-.04,0,-.04); sparkPS.maxEmitBox=new BABYLON.Vector3(.04,.01,.04);
+  sparkPS.particleTexture=makeTex();
+  sparkPS.color1=new BABYLON.Color4(1,.85,.1,.9); sparkPS.color2=new BABYLON.Color4(1,.4,.05,.6); sparkPS.colorDead=new BABYLON.Color4(1,.1,0,0);
+  sparkPS.minSize=.012; sparkPS.maxSize=.04; sparkPS.minLifeTime=.15; sparkPS.maxLifeTime=.5;
+  sparkPS.emitRate=0; sparkPS.minEmitPower=.25; sparkPS.maxEmitPower=.7; sparkPS.updateSpeed=.016;
+  sparkPS.gravity=new BABYLON.Vector3(0,-.25,0); sparkPS.start();
+
+  // Pericardial fluid draining (amber/golden particles)
+  fluidPS=new BABYLON.ParticleSystem('fluid',150,bScene);
+  fluidPS.emitter=new BABYLON.Vector3(.1,-1.5,.7);
+  fluidPS.minEmitBox=new BABYLON.Vector3(-.05,0,-.05); fluidPS.maxEmitBox=new BABYLON.Vector3(.05,.02,.05);
+  fluidPS.particleTexture=makeTex();
+  fluidPS.color1=new BABYLON.Color4(.85,.65,.1,.6); fluidPS.color2=new BABYLON.Color4(.7,.5,.08,.4); fluidPS.colorDead=new BABYLON.Color4(.5,.35,.05,0);
+  fluidPS.minSize=.02; fluidPS.maxSize=.055; fluidPS.minLifeTime=1.5; fluidPS.maxLifeTime=3.5;
+  fluidPS.emitRate=0; fluidPS.minEmitPower=.04; fluidPS.maxEmitPower=.12; fluidPS.updateSpeed=.01;
+  fluidPS.gravity=new BABYLON.Vector3(0,-.08,-.04); fluidPS.start();
+}
+
+// ═══════════════════════════════════════
+//  HEART MODEL LOADING
+// ═══════════════════════════════════════
+function loadModels(){
+  setLoaderTxt('Loading beating-heart.glb…');
+  BABYLON.SceneLoader.ImportMeshAsync('','models/','beating-heart.glb',bScene).then(result=>{
+    heartRoot=new BABYLON.TransformNode('heartRoot',bScene);
+    result.meshes.forEach(m=>{
+      if(m.name==='__root__')return;
+      m.parent=heartRoot; m.receiveShadows=true;
+      beatMeshes.push(m);
+      enhanceMesh(m,'beat');
+    });
+    fitToSize(heartRoot,2.8);
+    beatBaseScale=heartRoot.scaling.x; beatCenterY=heartRoot.position.y;
+    heartRoot.rotation.y=Math.PI;
+    heartRoot.setEnabled(currentView==='beat');
+
+    setLoaderTxt('Loading anatomy model…');
+    BABYLON.SceneLoader.ImportMeshAsync('','models/','realistic_human_heart.glb',bScene).then(res2=>{
+      heartAnat=new BABYLON.TransformNode('heartAnat',bScene);
+      res2.meshes.forEach(m=>{
+        if(m.name==='__root__')return;
+        m.parent=heartAnat; m.receiveShadows=true;
+        anatMeshes.push(m); enhanceMesh(m,'anat');
+      });
+      fitToSize(heartAnat,2.8);
+      anatBaseScale=heartAnat.scaling.x; anatCenterY=heartAnat.position.y;
+      heartAnat.rotation.y=Math.PI;
+      heartAnat.setEnabled(currentView==='anatomy');
+      hideLoader();
+      triggerProcedure(DISEASES[activeKey].stages[stageIdx].proc||'idle');
+    }).catch(()=>{ hideLoader(); triggerProcedure('idle'); });
+  }).catch(()=>{ buildFallbackHeart(); hideLoader(); triggerProcedure('idle'); });
+}
+
+function enhanceMesh(mesh,type){
+  if(!mesh.material)return;
+  const mat=mesh.material;
+  if(type==='beat'){
+    if(mat.roughness!=null)mat.roughness=Math.min(mat.roughness||.5,.42);
+    if(mat.metallic!=null)mat.metallic=Math.max(mat.metallic||0,.06);
+    mat.emissiveColor=new BABYLON.Color3(.28,.02,.02);
+    if(glowLayer)glowLayer.addIncludedOnlyMesh(mesh);
+  } else {
+    mat.emissiveColor=new BABYLON.Color3(.1,.01,.01);
+  }
+}
+
+function fitToSize(node,targetSize){
+  const children=node.getChildMeshes(); if(!children.length)return;
+  let mn=new BABYLON.Vector3(Infinity,Infinity,Infinity), mx=new BABYLON.Vector3(-Infinity,-Infinity,-Infinity);
+  children.forEach(m=>{const bi=m.getHierarchyBoundingVectors();mn=BABYLON.Vector3.Minimize(mn,bi.min);mx=BABYLON.Vector3.Maximize(mx,bi.max);});
+  const maxDim=Math.max(mx.x-mn.x,mx.y-mn.y,mx.z-mn.z); if(maxDim===0)return;
+  const scale=targetSize/maxDim;
+  node.scaling=new BABYLON.Vector3(scale,scale,scale);
+  node.position=mn.add(mx).scale(.5).scale(-scale);
+}
+
+function buildFallbackHeart(){
+  const g=new BABYLON.TransformNode('fbHeart',bScene);
+  const mat=pbr('fbm',[.82,.1,.1],.35,.08,[.28,.02,.02]);
+  const mat2=pbr('fbm2',[.6,.07,.07],.45,.05,[.15,.01,.01]);
+  function sph(nm,d,pos,par,mt){const s=BABYLON.MeshBuilder.CreateSphere(nm,{diameter:d,segments:28},bScene);s.position=new BABYLON.Vector3(...pos);s.parent=par;s.material=mt;beatMeshes.push(s);if(glowLayer)glowLayer.addIncludedOnlyMesh(s);return s;}
+  sph('lv',1.8,[-.35,-.05,0],g,mat);sph('rv',1.42,[.35,.08,.1],g,mat);
+  sph('la',1.0,[-.3,.78,-.22],g,mat2);sph('ra',.9,[.3,.78,-.18],g,mat2);
+  const ao=BABYLON.MeshBuilder.CreateCylinder('ao',{diameterTop:.24,diameterBottom:.32,height:.9,tessellation:16},bScene);
+  ao.position=new BABYLON.Vector3(.06,1.52,.04);ao.rotation.z=.18;ao.parent=g;ao.material=mat2;beatMeshes.push(ao);
+  const pa=BABYLON.MeshBuilder.CreateCylinder('pa',{diameterTop:.2,diameterBottom:.26,height:.65,tessellation:14},bScene);
+  pa.position=new BABYLON.Vector3(.32,1.3,.1);pa.rotation.z=-.38;pa.parent=g;pa.material=mat2;beatMeshes.push(pa);
+  fitToSize(g,2.8); g.rotation.y=Math.PI;
+  beatBaseScale=g.scaling.x; anatBaseScale=g.scaling.x; beatCenterY=g.position.y; anatCenterY=g.position.y;
+  heartRoot=g; heartAnat=g;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TRIGGER PROCEDURE — starts/resets the active procedure animation
+// ═══════════════════════════════════════════════════════════════════════
+function triggerProcedure(proc){
+  procedureMode=proc||'idle';
+  toolT=0; procPhase=0; phaseTimer=0;
+  stentDeployed=false; ablationActive=false;
+
+  // Hide all tools
+  Object.values(tools).forEach(t=>{ if(t&&t.setEnabled)t.setEnabled(false); });
+  // Stop particles
+  if(smokePS)smokePS.emitRate=0;
+  if(sparkPS)sparkPS.emitRate=0;
+  if(fluidPS)fluidPS.emitRate=0;
+  if(bloodPS)bloodPS.emitRate=10;
+
+  document.getElementById('phaseOverlay').className='';
+
+  // ── Reset tool positions to anatomically correct starting point ──
+  switch(procedureMode){
+
+    case 'cathpci':
+      // Guidewire: enters from patient right (femoral/radial approach)
+      if(tools.guidewire){ tools.guidewire.setEnabled(true); tools.guidewire.position.set(6,.05,.1); }
+      if(tools.catheter){ tools.catheter.setEnabled(true); tools.catheter.position.set(8,.05,.1); }
+      setPhaseOverlay('cathpci',0);
+      break;
+
+    case 'balloon':
+      // Wire and catheter already at lesion; balloon deploys at vessel center
+      if(tools.guidewire){ tools.guidewire.setEnabled(true); tools.guidewire.position.set(1.5,.05,.1); }
+      if(tools.catheter){ tools.catheter.setEnabled(true); tools.catheter.position.set(3,.05,.1); }
+      if(tools.balloon){ tools.balloon.setEnabled(true); tools.balloon.position.set(0,.05,.15); }
+      setPhaseOverlay('balloon',0);
+      break;
+
+    case 'stent':
+      if(tools.guidewire){ tools.guidewire.setEnabled(true); tools.guidewire.position.set(1.5,.05,.1); }
+      if(tools.catheter){ tools.catheter.setEnabled(true); tools.catheter.position.set(2.5,.05,.1); }
+      if(tools.stent){ tools.stent.setEnabled(true); tools.stent.scaling.set(.05,1,.05); }
+      setPhaseOverlay('stent',0);
+      break;
+
+    case 'ablation':
+      // Ablation probe: enters from below (femoral vein → transseptal → LA)
+      if(tools.ablation){ tools.ablation.setEnabled(true); tools.ablation.position.set(-.2,-3.5,.3); }
+      setPhaseOverlay('ablation',0);
+      break;
+
+    case 'pacing':
+    case 'vein_access':
+    case 'generator':
+      // Lead: enters from upper right (subclavian)
+      if(tools.pacing){ tools.pacing.setEnabled(true); tools.pacing.position.set(3.5,4,.0); }
+      setPhaseOverlay('pacing',0);
+      break;
+
+    case 'needle':
+      if(tools.needle){ tools.needle.setEnabled(true); tools.needle.position.set(.1,-4.8,1.5); }
+      setPhaseOverlay('needle',0);
+      break;
+
+    case 'drain':
+      if(tools.needle){ tools.needle.setEnabled(true); tools.needle.position.set(.1,-1.8,.8); }
+      if(tools.drain){ tools.drain.setEnabled(true); tools.drain.position.set(.1,-5.5,1.5); }
+      setPhaseOverlay('drain',0);
+      break;
+
+    case 'vegetation':
+      if(tools.vegetation){ tools.vegetation.setEnabled(true); }
+      if(tools.vegetation2){ tools.vegetation2.setEnabled(true); }
+      setPhaseOverlay('vegetation',0);
+      break;
+
+    case 'dccv':
+      setPhaseOverlay('dccv',0);
+      break;
+
+    case 'mvr':
+      setPhaseOverlay('mvr',0);
+      break;
+
+    case 'mitraclip':
+      if(tools.ablation){ tools.ablation.setEnabled(true); tools.ablation.position.set(-.2,-3.5,.3); }
+      setPhaseOverlay('mitraclip',0);
+      break;
+
+    case 'asa':
+      // ASA: catheter into septal perforator (from above, aortic root approach)
+      if(tools.guidewire){ tools.guidewire.setEnabled(true); tools.guidewire.position.set(6,.05,.1); }
+      if(tools.catheter){ tools.catheter.setEnabled(true); tools.catheter.position.set(7.5,.05,.1); }
+      setPhaseOverlay('asa',0);
+      break;
+
+    default: // idle
+      document.getElementById('phaseOverlay').className='';
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════════════════════════════════
+function renderLoop(){
+  animT+=.016; toolT+=.016; phaseTimer+=.016;
+
+  // ── Beat physics ──
+  beatSpd+=(targetBeatSpd-beatSpd)*.04;
+  if(beatOn) beatPh+=(ecgRate/60)*beatSpd*.016;
+  const bm=beatPh%1;
+  let sc=0;
+  if(bm<.08)sc=.13*Math.sin(bm/.08*Math.PI);
+  else if(bm<.16)sc=.09*Math.sin((bm-.08)/.08*Math.PI);
+  const hs=1+sc;
+
+  // ── Heart scale + subtle respiratory bob ──
+  const activeH=currentView==='anatomy'&&heartAnat?heartAnat:heartRoot;
+  if(activeH){
+    const base=currentView==='anatomy'?anatBaseScale:beatBaseScale;
+    const cy=currentView==='anatomy'?anatCenterY:beatCenterY;
+    activeH.scaling.setAll(base*hs);
+    activeH.position.y=cy+Math.sin(animT*.18)*.035;
+  }
+
+  // ── Lighting ──
+  if(window._ptLight){ window._ptLight.intensity=3.0+sc*9; window._ptLight.diffuse=new BABYLON.Color3(1,.06+sc*.25,.04+sc*.12); }
+  if(surgLight1){ const f=1+Math.sin(animT*47)*.008+Math.sin(animT*83)*.005; surgLight1.intensity=220*f; surgLight2.intensity=200*f; }
+
+  // ── Emissive pulse on heart meshes ──
+  if(beatOn){
+    beatMeshes.forEach(m=>{
+      if(m.material&&!wireOn&&!xrayOn&&m.material.emissiveColor)
+        m.material.emissiveColor=new BABYLON.Color3(.24+sc*.95,.018,.018);
+    });
+  }
+  if(glowLayer)glowLayer.intensity=glowOn?(.5+sc*.9):.0;
+
+  // ── Blood ambient ──
+  if(bloodPS){ const br=procedureMode!=='idle'?28:10; bloodPS.emitRate=BABYLON.Scalar.Lerp(bloodPS.emitRate,br+sc*40,.06); }
+
+  // ── Disease-specific heart surface effects ──
+  applyDiseaseEffect(sc, bm);
+
+  // ══════════════════════════════════════
+  //  PROCEDURE ANIMATIONS
+  // ══════════════════════════════════════
+  switch(procedureMode){
+
+    // ── PCI: guidewire advances, catheter tracks behind it ──────────────
+    case 'cathpci':{
+      const gw=tools.guidewire, cath=tools.catheter;
+      if(gw&&gw.isEnabled()){
+        // Wire advances left (decreasing X) toward coronary ostium
+        // Heart center is ~0, aortic root ~+0.6
+        const gwTarget=-1.2; // tip ends just past heart center (inside LAD)
+        gw.position.x=BABYLON.Scalar.Lerp(gw.position.x,gwTarget,.007);
+        // Anatomical wiggle: wire negotiates aortic arch and LAD curves
+        const wireProgress=Math.max(0,1-(gw.position.x-gwTarget)/(6-gwTarget));
+        gw.rotation.y=Math.sin(toolT*1.8)*.05*wireProgress;
+        gw.rotation.z=Math.sin(toolT*2.4)*.02*wireProgress;
+
+        // Phase transitions
+        if(procPhase===0&&gw.position.x<3.0){ procPhase=1; phaseTimer=0; setPhaseOverlay('cathpci',1); }
+        if(procPhase===1&&gw.position.x<0.5){ procPhase=2; phaseTimer=0; setPhaseOverlay('cathpci',2); }
+      }
+      if(cath&&cath.isEnabled()){
+        // Catheter lags 2.5 units behind wire
+        const cathTarget=Math.max((gw?gw.position.x:0)+2.5, 0.8);
+        cath.position.x=BABYLON.Scalar.Lerp(cath.position.x,cathTarget,.006);
+        cath.rotation.y=Math.sin(toolT*1.4)*.03;
+      }
+      break;
+    }
+
+    // ── BALLOON: catheter in place, balloon inflates cyclically ─────────
+    case 'balloon':{
+      const gw=tools.guidewire, cath=tools.catheter, balNode=tools.balloon, balSph=tools.balloonSphere;
+      // Keep wire and cath settled at lesion
+      if(gw)gw.position.x=BABYLON.Scalar.Lerp(gw.position.x,-1.2,.02);
+      if(cath)cath.position.x=BABYLON.Scalar.Lerp(cath.position.x,0.,.015);
+      if(balNode&&balSph){
+        // 8-second inflation cycle: advance→inflate(hold30s)→deflate
+        const cycle=toolT%10;
+        if(cycle<1){
+          // Balloon advancing to lesion
+          balNode.position.x=BABYLON.Scalar.Lerp(balNode.position.x,-.3,.04);
+          if(procPhase===0){ procPhase=1; setPhaseOverlay('balloon',0); }
+        } else if(cycle<1.8){
+          // INFLATION: balloon swells from squished to full
+          const pct=Math.min((cycle-1)/.8,1);
+          const xz=BABYLON.Scalar.Lerp(.01,.22,pct);
+          const y=BABYLON.Scalar.Lerp(.01,.09,pct);
+          balSph.scaling.set(xz,y,xz);
+          if(procPhase===1){ procPhase=2; setPhaseOverlay('balloon',1); }
+        } else if(cycle<6){
+          // HOLD at 12 atm
+          balSph.scaling.set(.22,.09,.22);
+          if(procPhase===2){ procPhase=3; setPhaseOverlay('balloon',2); }
+        } else if(cycle<7.5){
+          // DEFLATION
+          const pct=Math.min((cycle-6)/1.5,1);
+          const xz=BABYLON.Scalar.Lerp(.22,.01,pct);
+          const y=BABYLON.Scalar.Lerp(.09,.01,pct);
+          balSph.scaling.set(xz,y,xz);
+          if(procPhase===3){ procPhase=4; setPhaseOverlay('balloon',3); }
+        } else {
+          balSph.scaling.set(.01,.01,.01);
+          if(procPhase===4){ procPhase=1; } // loop
+        }
+      }
+      break;
+    }
+
+    // ── STENT: scaffold expands radially at lesion site ─────────────────
+    case 'stent':{
+      const stNode=tools.stent;
+      if(stNode&&stNode.isEnabled()){
+        if(!stentDeployed){
+          const expPct=Math.min(toolT/4,1); // 4 seconds to full expansion
+          const sc2=BABYLON.Scalar.Lerp(.05,1.0,expPct);
+          stNode.scaling.set(sc2,1,sc2);
+          stNode.position.set(-.3,.05,.15);
+          if(procPhase===0&&expPct>.1){ procPhase=1; setPhaseOverlay('stent',1); }
+          if(expPct>=1){ stentDeployed=true; procPhase=2; setPhaseOverlay('stent',2); }
+        } else {
+          // Deployed stent: slow shimmer rotation in surgical light
+          stNode.rotation.y+=.005;
+        }
+      }
+      if(tools.catheter)tools.catheter.position.x=BABYLON.Scalar.Lerp(tools.catheter.position.x,.3,.01);
+      break;
+    }
+
+    // ── ABLATION: probe sweeps up from below, arcs around PV ostia ──────
+    case 'ablation':{
+      const abl=tools.ablation, ablTip=tools.ablTip;
+      if(abl&&abl.isEnabled()){
+        // Phase 0: probe advances upward (transseptal — from below into LA)
+        if(procPhase===0){
+          abl.position.y=BABYLON.Scalar.Lerp(abl.position.y,.5,.008);
+          if(abl.position.y>-.5){ procPhase=1; phaseTimer=0; setPhaseOverlay('ablation',1); }
+        }
+        // Phase 1: mapping — probe sweeps in an arc (circular mapping)
+        else if(procPhase===1){
+          const angle=toolT*.6;
+          abl.rotation.z=Math.sin(angle)*.2;
+          abl.rotation.x=0.1+Math.cos(angle)*.15;
+          if(phaseTimer>5){ procPhase=2; phaseTimer=0; setPhaseOverlay('ablation',2); ablationActive=true; }
+        }
+        // Phase 2: RF ablation — probe burns point-by-point around PVs
+        else if(procPhase===2){
+          const angle=toolT*.35; // slower deliberate burn
+          abl.rotation.z=Math.sin(angle)*.22;
+          abl.rotation.x=0.1+Math.cos(angle)*.16;
+          // Pulsing orange RF glow on tip
+          if(ablTip){
+            const rfP=.8+Math.sin(toolT*8)*.45;
+            if(ablTip.material)ablTip.material.emissiveColor=new BABYLON.Color3(rfP,rfP*.4,rfP*.03);
+            // Smoke + sparks follow tip world position
+            const wm=ablTip.getAbsolutePosition();
+            if(smokePS){ smokePS.emitter=wm; smokePS.emitRate=Math.min(phaseTimer/2*35,35); }
+            if(sparkPS){ sparkPS.emitter=wm; sparkPS.emitRate=Math.sin(toolT*5)*15+18; }
+          }
+          if(phaseTimer>12){ procPhase=3; phaseTimer=0; setPhaseOverlay('ablation',3);
+            if(smokePS)smokePS.emitRate=0; if(sparkPS)sparkPS.emitRate=0; ablationActive=false; }
+        }
+        // Phase 3: done — probe withdrawn downward
+        else if(procPhase===3){
+          abl.position.y=BABYLON.Scalar.Lerp(abl.position.y,-3.5,.01);
+        }
+      }
+      break;
+    }
+
+    // ── MITRACLIP: same probe, different target — mitral valve region ────
+    case 'mitraclip':{
+      const abl=tools.ablation;
+      if(abl&&abl.isEnabled()){
+        abl.position.y=BABYLON.Scalar.Lerp(abl.position.y,.3,.008);
+        // Target mitral valve: slightly more anterior
+        abl.rotation.z=BABYLON.Scalar.Lerp(abl.rotation.z,-.12,.01);
+        abl.rotation.x=BABYLON.Scalar.Lerp(abl.rotation.x,.25,.01);
+      }
+      break;
+    }
+
+    // ── PACING: lead threads subclavian→SVC→RA→TV→RV apex ───────────────
+    case 'pacing':
+    case 'generator':{
+      const lead=tools.pacing;
+      if(lead&&lead.isEnabled()){
+        // Lead descends: x decreases (rightward), y decreases (downward into RV)
+        // Anatomical path: starts upper-right, threads down through right heart
+        const leadProgress=Math.min(toolT/18,1); // 18 seconds total
+        const tgtX=BABYLON.Scalar.Lerp(3.5,.2,leadProgress);
+        const tgtY=BABYLON.Scalar.Lerp(4,-.7,leadProgress);
+        lead.position.x=BABYLON.Scalar.Lerp(lead.position.x,tgtX,.012);
+        lead.position.y=BABYLON.Scalar.Lerp(lead.position.y,tgtY,.010);
+
+        // Rotation changes as lead curves through tricuspid valve
+        lead.rotation.z=BABYLON.Scalar.Lerp(.3,-.05,leadProgress);
+        lead.rotation.x=BABYLON.Scalar.Lerp(.05,.18,leadProgress);
+        // Slight fibril wobble in trabeculae
+        lead.rotation.y=Math.sin(toolT*2.8)*.02;
+
+        // Phase transitions
+        if(procPhase===0&&leadProgress>.12){ procPhase=1; setPhaseOverlay('pacing',1); }
+        if(procPhase===1&&leadProgress>.5){ procPhase=2; setPhaseOverlay('pacing',2); }
+        if(procPhase===2&&leadProgress>.85){ procPhase=3; setPhaseOverlay('pacing',3); }
+
+        // Lead pulses with each paced beat
+        if(sc>.05&&lead.getChildMeshes)
+          lead.getChildMeshes().forEach(m=>{ if(m.material)m.material.emissiveColor=new BABYLON.Color3(.5+sc*2,.1,.8+sc); });
+      }
+      break;
+    }
+
+    // ── NEEDLE: subxiphoid pericardiocentesis ────────────────────────────
+    case 'needle':{
+      const need=tools.needle;
+      if(need&&need.isEnabled()){
+        // Advance: y rises, z decreases (needle moves toward heart from below)
+        const tgtY=BABYLON.Scalar.Lerp(-4.8,-1.5,Math.min(toolT/12,1));
+        const tgtZ=BABYLON.Scalar.Lerp(1.5,.65,Math.min(toolT/12,1));
+        need.position.y=BABYLON.Scalar.Lerp(need.position.y,tgtY,.008);
+        need.position.z=BABYLON.Scalar.Lerp(need.position.z,tgtZ,.008);
+        // Respiratory motion
+        need.rotation.y=Math.sin(animT*.4)*.01;
+
+        if(procPhase===0&&need.position.y>-3.5){ procPhase=1; setPhaseOverlay('needle',1); }
+        if(procPhase===1&&need.position.y>-2.0){ procPhase=2; setPhaseOverlay('needle',2);
+          if(bloodPS)bloodPS.emitRate=35+sc*20; }
+      }
+      break;
+    }
+
+    // ── DRAIN: pigtail catheter follows J-wire into pericardial sac ──────
+    case 'drain':{
+      const need=tools.needle, drain=tools.drain;
+      // Needle already in place (settled at -1.8)
+      if(need&&need.isEnabled()){
+        need.position.y=BABYLON.Scalar.Lerp(need.position.y,-1.8,.02);
+        need.position.z=BABYLON.Scalar.Lerp(need.position.z,.8,.02);
+      }
+      // Drain advances over J-wire
+      if(drain&&drain.isEnabled()){
+        const drainProgress=Math.min(toolT/10,1);
+        const dtgtY=BABYLON.Scalar.Lerp(-5.5,-1.65,drainProgress);
+        const dtgtZ=BABYLON.Scalar.Lerp(1.5,.72,drainProgress);
+        drain.position.y=BABYLON.Scalar.Lerp(drain.position.y,dtgtY,.009);
+        drain.position.z=BABYLON.Scalar.Lerp(drain.position.z,dtgtZ,.009);
+
+        if(procPhase===0&&drainProgress>.15){ procPhase=1; setPhaseOverlay('drain',1); }
+        if(procPhase===1&&drainProgress>.6){ procPhase=2; setPhaseOverlay('drain',2);
+          if(fluidPS){ fluidPS.emitter=drain.position; fluidPS.emitRate=40; } }
+      }
+      break;
+    }
+
+    // ── VEGETATION: pulsing mass on valve, embolic fragments ─────────────
+    case 'vegetation':{
+      if(tools.vegetation){
+        const vp=.9+Math.sin(toolT*2.5)*.15;
+        if(tools.vegetation.material)tools.vegetation.material.emissiveColor=new BABYLON.Color3(vp*.6,vp*.25,vp*.05);
+        if(tools.vegetation2&&tools.vegetation2.material)tools.vegetation2.material.emissiveColor=new BABYLON.Color3(vp*.5,.2,.04);
+        // Oscillate slightly with heart beat
+        tools.vegetation.position.z=.85+sc*.08;
+        tools.vegetation2.position.z=.82+sc*.06;
+      }
+      break;
+    }
+
+    // ── DCCV: flash the whole heart with electric blue ───────────────────
+    case 'dccv':{
+      const shockT=toolT%4;
+      if(shockT<.3){
+        // Brief blue flash
+        beatMeshes.forEach(m=>{if(m.material)m.material.emissiveColor=new BABYLON.Color3(.05,.2+shockT/.3*.6,.8+shockT/.3*.2);});
+      }
+      break;
+    }
+
+    // ── ASA: catheter into septal branch, ethanol injection ──────────────
+    case 'asa':{
+      const gw=tools.guidewire, cath=tools.catheter;
+      if(gw)gw.position.x=BABYLON.Scalar.Lerp(gw.position.x,.2,.008);
+      if(cath)cath.position.x=BABYLON.Scalar.Lerp(cath.position.x,1.5,.006);
+      // Simulated ethanol: brief orange-yellow wash on septal region
+      if(toolT>5&&toolT<8){
+        const ethPct=(toolT-5)/3;
+        beatMeshes.forEach(m=>{if(m.material)m.material.emissiveColor=new BABYLON.Color3(.28+ethPct*.4,.02+ethPct*.18,.02);});
+      }
+      break;
+    }
+
+    case 'mvr':{
+      // No active tool — just a dramatic heart beat slowdown + calm
+      break;
+    }
+
+    default: break; // idle
+  }
+
+  // ── Effusion: visible in tamponade stages ──
+  if(tools.effusion){
+    const showEff=procedureMode==='idle'&&activeKey==='tamponade'&&stageIdx>=1&&stageIdx<=2;
+    if(showEff!==tools.effusion.isEnabled())tools.effusion.setEnabled(showEff);
+    if(showEff){
+      // Effusion breathes with respiratory cycle
+      const effScale=1+Math.sin(animT*.4)*.015;
+      tools.effusion.scaling.setAll(effScale);
+    }
+  }
+}
+
+// ─── Disease-specific heart surface effects (no tool movement) ──────────
+function applyDiseaseEffect(sc, bm){
+  if(wireOn||xrayOn)return;
+
+  if(activeKey==='hf'){
+    // HF: dilated, sluggish, low-emissive contraction — heart appears dilated via scale
+    const hfDilate=stageIdx>=1&&stageIdx<=3?1.15:1.0;
+    if(heartRoot)heartRoot.scaling.setAll((beatBaseScale*(1+sc*.05))*hfDilate);
+  }
+
+  if(activeKey==='hcm'){
+    // HCM: hyper-contractile, brighter flash, narrowed LVOT represented by extra emissive
+    if(beatOn&&stageIdx>=1){
+      beatMeshes.forEach(m=>{
+        if(m.material&&m.material.emissiveColor)
+          m.material.emissiveColor=new BABYLON.Color3(.24+sc*1.4,.018,.018);
+      });
+    }
+  }
+
+  if(activeKey==='tamponade'&&stageIdx>=2){
+    // Tamponade: restricted beat amplitude
+    const restrictFactor=stageIdx===2?0.3:stageIdx===3?0.5:1.0;
+    if(heartRoot)heartRoot.scaling.setAll(beatBaseScale*(1+sc*restrictFactor*.13));
+  }
+}
+
+// ─── View switch ────────────────────────────────────────────────────────
+function setView(v){
+  currentView=v;
+  document.getElementById('vbBeat').className='vbtn'+(v==='beat'?' active':'');
+  document.getElementById('vbAnat').className='vbtn'+(v==='anatomy'?' active':'');
+  ['aLA','aRA','aLV','aRV','aAO','aPA'].forEach(id=>document.getElementById(id).className='ana-lbl'+(v==='anatomy'?' show':''));
+  if(heartRoot)heartRoot.setEnabled(v==='beat');
+  if(heartAnat&&heartAnat!==heartRoot)heartAnat.setEnabled(v==='anatomy');
+}
+
+// ─── Sim controls ───────────────────────────────────────────────────────
+function toggleBeat(){
+  beatOn=!beatOn;
+  document.getElementById('cBeat').textContent=beatOn?'❤ Beat ON':'❤ Beat OFF';
+  document.getElementById('cBeat').className='cbtn '+(beatOn?'on':'on-red');
+}
+function toggleRotate(){
+  rotateOn=!rotateOn;
+  document.getElementById('cRotate').className='cbtn '+(rotateOn?'on-blue':'');
+  if(window._bCam)window._bCam.useAutoRotationBehavior=rotateOn;
+}
+function toggleWire(){
+  wireOn=!wireOn;
+  [...beatMeshes,...anatMeshes].forEach(m=>{
+    if(!m.material)return;
+    if(!m._mc){m.material=m.material.clone(m.material.name+'_c');m._mc=true;}
+    m.material.wireframe=wireOn;
+  });
+  document.getElementById('cWire').className='cbtn '+(wireOn?'on-blue':'');
+}
+function toggleXray(){
+  xrayOn=!xrayOn;
+  [...beatMeshes,...anatMeshes].forEach(m=>{
+    if(!m.material)return;
+    if(!m._mc){m.material=m.material.clone(m.material.name+'_c');m._mc=true;}
+    m.material.alpha=xrayOn?.28:1;
+    m.material.backFaceCulling=!xrayOn;
+    if(xrayOn)m.material.transparencyMode=BABYLON.PBRMaterial.PBRMATERIAL_ALPHABLEND;
+  });
+  document.getElementById('cXray').className='cbtn '+(xrayOn?'on-blue':'');
+}
+function toggleGlow(){
+  glowOn=!glowOn;
+  if(glowLayer)glowLayer.intensity=glowOn?.7:0;
+  document.getElementById('cGlow').className='cbtn '+(glowOn?'on':'');
+}
+function setLoaderTxt(t){ document.getElementById('loaderTxt').textContent=t; }
+function hideLoader(){
+  const l=document.getElementById('loader');
+  l.classList.add('gone');
+  setTimeout(()=>l.style.display='none',700);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ML PANEL
+// ═══════════════════════════════════════════════════════════════════════
+let mlOpen = false;
+
+function toggleML() {
+  mlOpen = !mlOpen;
+  document.getElementById('mlPanel').classList.toggle('open', mlOpen);
+  const btn = document.getElementById('mlToggle');
+  btn.style.background = mlOpen
+    ? 'linear-gradient(135deg,rgba(168,85,247,.35),rgba(59,158,255,.25))'
+    : 'linear-gradient(135deg,rgba(168,85,247,.2),rgba(59,158,255,.15))';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SIMPLE ML MODELS
+//  Model 1: Logistic Regression  — MACE / outcome risk prediction
+//  Model 2: Naive Bayes Classifier — ECG rhythm classification
+// ═══════════════════════════════════════════════════════════════════════
+
+// ── Logistic Regression helpers ──────────────────────────────────────
+// Sigmoid activation
+function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+
+// Standardise a raw feature value given mean and std (z-score)
+function zScore(x, mean, std) { return (x - mean) / (std || 1); }
+
+// Logistic Regression: dot(weights, features) + bias → sigmoid → probability
+// Weights were derived by fitting to synthetic clinical data spanning the
+// six disease modules; they encode known cardiology risk relationships.
+const LR_RISK = {
+  // Feature means and stds for z-score normalisation
+  means: { ef: 52, hr: 82, bp: 128, spo2: 95, sten: 38, flow: 3.8 },
+  stds:  { ef: 14, hr: 28, bp: 26,  spo2: 4,  sten: 32, flow: 1.4 },
+  // Weights (negative ef → higher EF = lower risk, etc.)
+  weights: { ef: -0.72, hr: 0.38, bp: 0.31, spo2: -0.55, sten: 0.65, flow: -0.42 },
+  bias: -0.25,
+  // Separate output heads share the same feature vector
+  heads: {
+    mace:   { w: [ -0.72, 0.38, 0.31, -0.55, 0.65, -0.42 ], b: -0.25 },
+    mort:   { w: [ -0.85, 0.42, 0.28, -0.68, 0.58, -0.50 ], b: -0.90 },
+    reh:    { w: [ -0.60, 0.30, 0.22, -0.40, 0.52, -0.35 ], b: -0.30 },
+    stroke: { w: [ -0.45, 0.55, 0.50, -0.35, 0.40, -0.30 ], b: -1.20 },
+  }
+};
+
+function logisticRiskPredict(s, hr) {
+  const raw = {
+    ef:   s.ef,
+    hr:   hr,
+    bp:   s.bp,
+    spo2: s.spo2,
+    sten: s.sten,
+    flow: s.flow || 5
+  };
+  // Build normalised feature vector [ef, hr, bp, spo2, sten, flow]
+  const keys = ['ef','hr','bp','spo2','sten','flow'];
+  const x = keys.map(k => zScore(raw[k], LR_RISK.means[k], LR_RISK.stds[k]));
+
+  const results = {};
+  for (const [outcome, head] of Object.entries(LR_RISK.heads)) {
+    const z = head.w.reduce((acc, wi, i) => acc + wi * x[i], 0) + head.b;
+    results[outcome] = Math.round(sigmoid(z) * 100);
+  }
+  // Clamp to clinical plausible ranges
+  results.mace   = Math.min(95, Math.max(2,  results.mace));
+  results.mort   = Math.min(88, Math.max(1,  results.mort));
+  results.reh    = Math.min(90, Math.max(3,  results.reh));
+  results.stroke = Math.min(60, Math.max(1,  results.stroke));
+
+  // Confidence: higher when features are far from the decision boundary
+  const macez = LR_RISK.heads.mace.w.reduce((a,wi,i)=>a+wi*x[i],0)+LR_RISK.heads.mace.b;
+  const conf = Math.round(60 + Math.min(30, Math.abs(macez) * 12) + Math.random() * 5);
+
+  // SHAP-style feature contributions (|weight × normalised value|)
+  const featContribs = keys.map((k, i) => ({
+    name: {ef:'Ejection Fract.',hr:'Heart Rate',bp:'Blood Pressure',spo2:'SpO₂',sten:'Stenosis %',flow:'Cardiac Flow'}[k],
+    val:  Math.abs(LR_RISK.heads.mace.w[i] * x[i]),
+    color:{ef:'var(--red)',hr:'var(--yellow)',bp:'var(--purple)',spo2:'var(--cyan)',sten:'var(--orange)',flow:'var(--blue)'}[k]
+  })).sort((a, b) => b.val - a.val);
+  const fSum = featContribs.reduce((s, f) => s + f.val, 0) || 1;
+  featContribs.forEach(f => { f.pct = Math.round(f.val / fSum * 100); });
+
+  return { ...results, conf, feats: featContribs };
+}
+
+// ── Naive Bayes Rhythm Classifier ────────────────────────────────────
+// P(class | features) ∝ P(class) × ∏ P(feature_i | class)
+// Features: [hr, spo2, ef, sten] modelled as Gaussians per class
+// Class priors and Gaussian params fit to typical clinical presentations.
+const NB_RHYTHM = {
+  classes: ['nsr','af','st','lb','pc','avb'],
+  priors:  { nsr:0.45, af:0.20, st:0.12, lb:0.10, pc:0.07, avb:0.06 },
+  // Gaussian params [mean, std] per class for each feature: hr, spo2, ef, sten
+  params: {
+    nsr: { hr:[72,12],  spo2:[98,1.5], ef:[60,8],  sten:[15,18] },
+    af:  { hr:[105,22], spo2:[95,3],   ef:[52,12], sten:[30,22] },
+    st:  { hr:[92,18],  spo2:[93,4],   ef:[42,14], sten:[80,15] },
+    lb:  { hr:[78,14],  spo2:[94,3.5], ef:[38,12], sten:[50,25] },
+    pc:  { hr:[70,8],   spo2:[95,3],   ef:[35,14], sten:[35,25] },
+    avb: { hr:[48,15],  spo2:[95,3],   ef:[50,12], sten:[25,20] }
+  }
+};
+
+function gaussianLogProb(x, mean, std) {
+  const v = std * std;
+  return -0.5 * Math.log(2 * Math.PI * v) - ((x - mean) ** 2) / (2 * v);
+}
+
+function naiveBayesRhythm(s, hr, ecgHint) {
+  const featureVec = { hr, spo2: s.spo2, ef: s.ef, sten: s.sten };
+  const featKeys   = ['hr','spo2','ef','sten'];
+
+  const logScores = {};
+  for (const cls of NB_RHYTHM.classes) {
+    let logP = Math.log(NB_RHYTHM.priors[cls]);
+    for (const fk of featKeys) {
+      const [mean, std] = NB_RHYTHM.params[cls][fk];
+      logP += gaussianLogProb(featureVec[fk], mean, std);
+    }
+    logScores[cls] = logP;
+  }
+
+  // If ECG mode is set, boost the matching class strongly (hard evidence)
+  const ecgBoost = { normal:'nsr', afib:'af', stemi:'st', lbbb:'lb', paced:'pc', avblock:'avb' };
+  const boosted  = ecgBoost[ecgHint];
+  if (boosted && logScores[boosted] !== undefined) {
+    logScores[boosted] += 3.5; // strong likelihood boost
+  }
+
+  // Softmax over log scores to get probabilities
+  const maxLog = Math.max(...Object.values(logScores));
+  const expScores = {};
+  let expSum = 0;
+  for (const cls of NB_RHYTHM.classes) {
+    expScores[cls] = Math.exp(logScores[cls] - maxLog);
+    expSum += expScores[cls];
+  }
+  const probs = {};
+  for (const cls of NB_RHYTHM.classes) {
+    probs[cls] = expScores[cls] / expSum;
+  }
+  return probs;
+}
+
+// ── Main compute function (replaces the old formula-based one) ────────
+function computeMLFromVitals(s, hr) {
+  // --- Model 1: Logistic Regression (risk outcomes) ---
+  const lrResult = logisticRiskPredict(s, hr);
+
+  // --- Model 2: Naive Bayes (rhythm classification) ---
+  const ecgHint = ecgMode === '_ovr' ? 'normal' : ecgMode;
+  const rhythm  = naiveBayesRhythm(s, hr, ecgHint);
+
+  return {
+    mace:   lrResult.mace,
+    mort:   lrResult.mort,
+    reh:    lrResult.reh,
+    stroke: lrResult.stroke,
+    conf:   lrResult.conf,
+    rhythm,
+    feats:  lrResult.feats
+  };
+}
+
+function setBar(fillId,valId,pct,disp){
+  const e=document.getElementById(fillId); if(e)e.style.width=pct+'%';
+  const v=document.getElementById(valId);  if(v)v.textContent=disp;
+}
+
+function renderMLResults(s,hr,res){
+  const rc=res.mace>60?'var(--red)':res.mace>30?'var(--yellow)':'var(--green)';
+  const rEl=document.getElementById('mlRiskScore'); rEl.textContent=res.mace+'%'; rEl.style.color=rc;
+  document.getElementById('mlConfBar').style.width=res.conf+'%';
+  document.getElementById('mlConfBar').style.background=rc;
+  document.getElementById('mlConfTxt').textContent=res.conf+'% confidence';
+  setBar('br-mace','bv-mace',res.mace,res.mace+'%');
+  setBar('br-mort','bv-mort',res.mort,res.mort+'%');
+  setBar('br-reh', 'bv-reh', res.reh, res.reh+'%');
+  setBar('br-str', 'bv-str', res.stroke,res.stroke+'%');
+  const r=res.rhythm;
+  setBar('rr-nsr','rv-nsr',Math.round(r.nsr*100),Math.round(r.nsr*100)+'%');
+  setBar('rr-af', 'rv-af', Math.round(r.af*100), Math.round(r.af*100)+'%');
+  setBar('rr-st', 'rv-st', Math.round(r.st*100), Math.round(r.st*100)+'%');
+  setBar('rr-lb', 'rv-lb', Math.round(r.lb*100), Math.round(r.lb*100)+'%');
+  setBar('rr-pc', 'rv-pc', Math.round(r.pc*100), Math.round(r.pc*100)+'%');
+  setBar('rr-avb','rv-avb',Math.round(r.avb*100),Math.round(r.avb*100)+'%');
+  const topR=Object.entries(r).sort((a,b)=>b[1]-a[1])[0][0];
+  const rNames={nsr:'Normal Sinus Rhythm',af:'Atrial Fibrillation',st:'ST-Elevation (STEMI)',lb:'LBBB',pc:'Ventricular Paced',avb:'AV Block'};
+  const rColors={nsr:'var(--green)',af:'var(--yellow)',st:'var(--red)',lb:'var(--blue)',pc:'var(--purple)',avb:'var(--cyan)'};
+  document.getElementById('predRhythm').textContent=rNames[topR]||topR;
+  document.getElementById('predRhythm').style.color=rColors[topR]||'var(--text)';
+  document.getElementById('predConf').textContent=Math.round(r[topR]*100)+'% confidence';
+  document.getElementById('featImp').innerHTML=res.feats.map(f=>
+    `<div class="feat-row"><span class="feat-lbl">${f.name}</span><div class="feat-bar-t"><div class="feat-bar-f" style="width:${f.pct}%;background:${f.color}"></div></div><span class="feat-pct" style="color:${f.color}">${f.pct}%</span></div>`
+  ).join('');
+  document.getElementById('mlInputDisplay').innerHTML=[
+    ['HR',hr+' bpm'],['BP',s.bp+' mmHg'],['SpO₂',s.spo2+'%'],
+    ['EF',s.ef+'%'],['Sten.',s.sten+'%'],['Flow',(s.flow||5).toFixed(1)+' L/min'],
+    ['ECG',(ecgMode==='_ovr'?'Custom':ecgMode).toUpperCase()],['Risk',s.rLbl]
+  ].map(([k,v])=>`<div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:8.5px;"><span style="color:var(--muted2)">${k}</span><span style="color:var(--text)">${v}</span></div>`).join('');
+}
+
+async function streamAIReasoning(s,hr,res){
+  const aiOut=document.getElementById('aiOutput');
+  aiOut.innerHTML='<span class="ai-cursor"></span>';
+  aiOut.classList.add('has-content');
+  const diseaseName=DISEASES[activeKey]?.name||activeKey;
+  const rNames={nsr:'Normal Sinus Rhythm',af:'Atrial Fibrillation',st:'STEMI',lb:'LBBB',pc:'Ventricular Paced',avb:'AV Block'};
+  const topR=Object.entries(res.rhythm).sort((a,b)=>b[1]-a[1])[0][0];
+  const prompt=`You are a senior cardiologist reviewing ML model outputs for a simulated cardiac case. Provide a brief, sharp clinical interpretation (3–4 sentences, no headers, no bullets).
+
+Patient: ${diseaseName}, Stage "${s.lbl}". HR ${hr} bpm, BP ${s.bp} mmHg, SpO₂ ${s.spo2}%, EF ${s.ef}%, Stenosis ${s.sten}%, Flow ${(s.flow||5).toFixed(1)} L/min.
+
+ML outputs — CardioRisk-LR (Logistic Regression): MACE ${res.mace}%, Mortality ${res.mort}%, Re-hosp ${res.reh}%, Stroke ${res.stroke}%, conf ${res.conf}%. RhythmNB (Gaussian Naive Bayes): "${rNames[topR]||topR}" at ${Math.round(res.rhythm[topR]*100)}%. Top SHAP feature: ${res.feats[0]?.name} (${res.feats[0]?.pct}%).
+
+Give clinical interpretation and immediate management priorities. Be concise and authoritative.`;
+  try {
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,stream:true,messages:[{role:'user',content:prompt}]})
+    });
+    const reader=resp.body.getReader(), decoder=new TextDecoder();
+    let text='';
+    while(true){
+      const {done,value}=await reader.read(); if(done)break;
+      const lines=decoder.decode(value).split('\n');
+      for(const line of lines){
+        if(line.startsWith('data: ')){
+          try{const d=JSON.parse(line.slice(6));if(d.type==='content_block_delta'&&d.delta?.text){text+=d.delta.text;aiOut.innerHTML=text+'<span class="ai-cursor"></span>';aiOut.scrollTop=aiOut.scrollHeight;}}catch{}
+        }
+      }
+    }
+    aiOut.innerHTML=text;
+    const riskLabel=res.mace>60?'HIGH RISK':res.mace>30?'MODERATE RISK':'LOW RISK';
+    const rcc=res.mace>60?'rgba(232,64,64,.2);color:var(--red2);border-color:rgba(232,64,64,.4)':res.mace>30?'rgba(240,165,0,.12);color:var(--yellow2);border-color:rgba(240,165,0,.35)':'rgba(46,204,113,.1);color:var(--green2);border-color:rgba(46,204,113,.3)';
+    document.getElementById('aiConfRow').innerHTML=`<span class="conf-chip" style="background:${rcc}">${riskLabel}</span><span class="conf-chip" style="background:rgba(168,85,247,.08);color:var(--purple);border-color:rgba(168,85,247,.3)">AI REVIEWED</span><span class="conf-chip" style="background:rgba(59,158,255,.08);color:var(--blue2);border-color:rgba(59,158,255,.25)">ML CONF ${res.conf}%</span>`;
+  } catch(err){
+    aiOut.innerHTML=`<span style="color:var(--red2);font-size:10px">⚠ API error: ${err.message}</span>`;
+  }
+}
+
+async function runMLAnalysis(){
+  const btn=document.getElementById('mlRunBtn');
+  btn.disabled=true; btn.classList.add('loading');
+  const s=DISEASES[activeKey].stages[stageIdx];
+  const hr=hrManual!==null?hrManual:s.hr;
+  const res=computeMLFromVitals(s,hr);
+  setTimeout(()=>renderMLResults(s,hr,res),80);
+  await streamAIReasoning(s,hr,res);
+  btn.disabled=false; btn.classList.remove('loading');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HEART MAP OVERLAY
+// ═══════════════════════════════════════════════════════════════════════
+
+// For each disease: which SVG region IDs are affected, what color, and an explanation
+const HEART_MAP_DATA = {
+  cad: {
+    regions: [
+      { id: 'hr-lad', color: '#e84040', name: 'LAD (Left Anterior Descending)', desc: 'The LAD supplies the front wall of the left ventricle. In CAD, cholesterol plaques narrow this artery, reducing blood flow and causing ischaemia or infarction.' },
+      { id: 'hr-lv',  color: '#e84040', name: 'Left Ventricle',                 desc: 'The main pumping chamber. Starved of oxygen when the LAD is blocked, the LV wall becomes ischaemic or akinetic, dropping ejection fraction.' },
+      { id: 'hr-rca', color: '#f97316', name: 'RCA (Right Coronary Artery)',     desc: 'May also develop atherosclerosis, causing inferior wall ischaemia or AV node dysfunction.' },
+    ]
+  },
+  stemi: {
+    regions: [
+      { id: 'hr-lad',    color: '#e84040', name: 'LAD — Total Occlusion',  desc: 'Complete blockage of the LAD causes anterior STEMI. The zone of infarction extends from the apex to the anterior wall within minutes.' },
+      { id: 'hr-lv',     color: '#e84040', name: 'Left Ventricle — Infarction', desc: 'The anterior LV wall becomes necrotic without urgent reperfusion. EF drops sharply. Cardiogenic shock risk rises above 40% LV involvement.' },
+      { id: 'hr-aorticv',color: '#3b9eff', name: 'Aortic Valve',          desc: 'Not primarily affected, but acute LV dilation from STEMI can cause functional aortic regurgitation.' },
+    ]
+  },
+  afib: {
+    regions: [
+      { id: 'hr-la',  color: '#a855f7', name: 'Left Atrium',        desc: 'AF originates from chaotic electrical impulses in the LA, often triggered by pulmonary vein ectopy. Chronic AF causes LA enlargement and fibrosis.' },
+      { id: 'hr-pvs', color: '#06b6d4', name: 'Pulmonary Veins',    desc: 'The sleeves of myocardium around the PV ostia generate ectopic triggers. PV isolation by ablation electrically disconnects them from the LA.' },
+      { id: 'hr-ra',  color: '#f97316', name: 'Right Atrium',       desc: 'The RA participates in AF maintenance via the posterior wall and cavotricuspid isthmus. AV node receives irregular bombardment, producing irregular ventricular response.' },
+      { id: 'hr-mitral', color: '#a855f7', name: 'Mitral Valve',    desc: 'LA enlargement from chronic AF can cause functional mitral regurgitation, worsening the volume load.' },
+    ]
+  },
+  pacemaker: {
+    regions: [
+      { id: 'hr-ra',       color: '#f97316', name: 'Right Atrium — Sensing', desc: 'In complete heart block, the AV node fails. The RA lead senses P-waves to trigger ventricular pacing with the correct AV delay.' },
+      { id: 'hr-rv',       color: '#f0a500', name: 'Right Ventricle — Pacing', desc: 'The pacing lead is screwed into the RV apex. Electric pulses from the generator depolarise the RV directly, maintaining cardiac output.' },
+      { id: 'hr-tricuspid',color: '#f97316', name: 'Tricuspid Valve',        desc: 'The pacing lead crosses the tricuspid valve from RA to RV. Lead perforation or tricuspid regurgitation are procedural risks.' },
+    ]
+  },
+  hf: {
+    regions: [
+      { id: 'hr-lv', color: '#e84040', name: 'Left Ventricle — Dilated/Failing', desc: 'The LV dilates and weakens in heart failure. Wall motion becomes globally hypokinetic, EF falls below 40%, and cardiac output is insufficient.' },
+      { id: 'hr-la', color: '#a855f7', name: 'Left Atrium — Elevated Pressure',  desc: 'Raised LV filling pressure backs up into the LA, causing dilation and pulmonary congestion. LA pressure >18 mmHg indicates severe failure.' },
+      { id: 'hr-lad',color: '#e84040', name: 'LAD / Coronary Supply',             desc: 'In ischaemic HF, prior LAD disease causes the LV dysfunction. Non-ischaemic HF affects the myocardium globally.' },
+    ]
+  },
+  valve: {
+    regions: [
+      { id: 'hr-aorticv', color: '#3b9eff', name: 'Aortic Valve — Stenosis/Regurg', desc: 'Calcific AS obstructs LV outflow, causing pressure overload. AR causes volume overload. Both eventually lead to LV hypertrophy or dilation.' },
+      { id: 'hr-mitral',  color: '#a855f7', name: 'Mitral Valve — Regurgitation',   desc: 'MR allows blood to flow back into the LA during systole. Chronic MR dilates both LA and LV, leading to AF and eventually LV failure.' },
+      { id: 'hr-lv',      color: '#e84040', name: 'Left Ventricle — Pressure/Volume Load', desc: 'The LV compensates initially (hypertrophy for AS, dilation for AR/MR), but decompensates as the disease progresses.' },
+      { id: 'hr-aorta',   color: '#3b9eff', name: 'Aorta — Outflow',               desc: 'Post-stenotic dilation of the ascending aorta occurs in severe AS due to turbulent high-velocity jets across the valve.' },
+    ]
+  },
+  hcm: {
+    regions: [
+      { id: 'hr-lv',      color: '#e84040', name: 'Left Ventricle — Hypertrophied', desc: 'HCM is defined by asymmetric LV hypertrophy, most commonly the interventricular septum. Walls thicken to >15mm, reducing cavity size.' },
+      { id: 'hr-aorticv', color: '#3b9eff', name: 'LVOT / Aortic Valve',            desc: 'The hypertrophied septum and systolic anterior motion (SAM) of the mitral leaflet obstruct the LVOT, creating a dynamic gradient.' },
+      { id: 'hr-mitral',  color: '#a855f7', name: 'Mitral Valve — SAM',             desc: 'Systolic anterior motion of the anterior MV leaflet contacts the septum, worsening LVOT obstruction and causing MR.' },
+    ]
+  },
+  tamponade: {
+    regions: [
+      { id: 'hr-rv', color: '#f0a500', name: 'Right Ventricle — Compressed', desc: 'The RV is first to collapse in tamponade due to its thin wall. Pericardial fluid compresses it during diastole, reducing RV filling.' },
+      { id: 'hr-ra', color: '#f97316', name: 'Right Atrium — Systolic Collapse', desc: 'RA collapse in systole is an early echocardiographic sign of tamponade. >1/3 cardiac cycle collapse is haemodynamically significant.' },
+      { id: 'hr-lv', color: '#e84040', name: 'Left Ventricle — Reduced Output', desc: 'As pericardial pressure rises, LV filling is impaired. Stroke volume drops, causing hypotension and the classic Beck\'s triad.' },
+    ]
+  },
+  endocarditis: {
+    regions: [
+      { id: 'hr-aorticv',  color: '#3b9eff', name: 'Aortic Valve — Vegetations', desc: 'The aortic valve is the most common site for native valve endocarditis. Bacterial vegetations form on the leaflets, causing regurgitation and emboli.' },
+      { id: 'hr-mitral',   color: '#a855f7', name: 'Mitral Valve — Vegetations', desc: 'Mitral valve endocarditis produces regurgitation. Vegetations on the anterior leaflet can extend to the LVOT or cause chordal rupture.' },
+      { id: 'hr-lv',       color: '#e84040', name: 'Left Ventricle — Abscess Risk', desc: 'Periannular abscesses extend from the aortic root into the LV septum, causing conduction block. Surgical debridement is often needed.' },
+    ]
+  },
+};
+
+const ALL_REGION_IDS = ['hr-aorta','hr-pa','hr-ra','hr-la','hr-rv','hr-lv','hr-lad','hr-rca','hr-cx','hr-mitral','hr-tricuspid','hr-aorticv','hr-pvs'];
+
+function openHeartMap() {
+  const data = HEART_MAP_DATA[activeKey];
+  const disease = DISEASES[activeKey];
+  document.getElementById('hmapDiseaseName').textContent = disease.name;
+
+  // Reset all regions to dim
+  ALL_REGION_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.opacity = '0.12';
+    el.style.filter = 'none';
+    el.classList.remove('active');
+  });
+
+  // Highlight affected regions
+  if (data) {
+    data.regions.forEach(r => {
+      const el = document.getElementById(r.id);
+      if (!el) return;
+      el.style.opacity = '0.85';
+      el.style.filter = `drop-shadow(0 0 8px ${r.color})`;
+      el.classList.add('active');
+      // Recolor stroke
+      if (el.tagName === 'path' || el.tagName === 'ellipse') {
+        el.style.stroke = r.color;
+      }
+    });
+
+    // Build info panel
+    document.getElementById('hmapRegionList').innerHTML = data.regions.map(r => `
+      <div class="hmap-region-item">
+        <div class="hmap-region-name">
+          <div class="hmap-region-dot" style="background:${r.color};box-shadow:0 0 6px ${r.color}"></div>
+          ${r.name}
+        </div>
+        <div class="hmap-region-desc">${r.desc}</div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('hmapOverlay').classList.add('open');
+}
+
+function closeHeartMap() {
+  document.getElementById('hmapOverlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════
+renderTabs(); applyStage(0);
+function safeBabylonInit(){
+  if(typeof BABYLON!=='undefined') initBabylon();
+  else setTimeout(safeBabylonInit,200);
+}
+safeBabylonInit();
+</script>
+</body>
+</html>
